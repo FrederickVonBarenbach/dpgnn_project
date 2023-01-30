@@ -1,0 +1,26 @@
+import numpy as np
+from scipy.stats import hypergeom
+
+def get_N(K, r):
+  return int((np.power(K, r + 1) - 1) / (K - 1))
+
+def get_k_range(N, K, n):
+  return range(max(0, n + K - N), min(K, n) + 1)
+
+def get_gamma(dataset_size, batch_size, l2_norm_clip, noise_multiplier, r_hop, degree_bound, alpha, delta):
+  N = int(dataset_size)
+  K = get_N(degree_bound, r_hop)
+  n = int(batch_size)
+  rho = hypergeom(N, K, n)
+  const = alpha * (alpha-1) * (2 * l2_norm_clip * l2_norm_clip) / (noise_multiplier * noise_multiplier)
+  # calc expected value
+  E_rho = np.float128(0)
+  for k in get_k_range(N, K, n):
+    expon = np.exp(np.float128(const * k * k))
+    dist = rho.pmf(k)
+    E_rho += expon * dist
+  return np.log(E_rho) / (alpha - 1)
+
+def get_epsilon(gamma, iteration, alpha, delta):
+  # convert RDP to DP
+  return (iteration * gamma) - np.log(delta) / (alpha - 1)
