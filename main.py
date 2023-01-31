@@ -70,44 +70,44 @@ def run_experiment(config):
 
   # setup model
   
-  # model = GNN([128, 256, 256], [256, 256, num_classes], config["r_hop"], 0.1).to(config["device"])
-  # # model = GNN(767, 64, [num_classes], r_hop).to(device)
-  # # model = GNN(165, 20, [num_classes], r_hop).to(device)
-  # loss_fn = nn.CrossEntropyLoss()
-  # optimizer = optim.DPAdam(
-  #     l2_norm_clip=config["clipping_threshold"],
-  #     noise_multiplier=sigma,
-  #     batch_size=config["batch_size"],
-  #     params=model.parameters(),
-  #     lr=1e-3,
-  #     weight_decay=1e-5)
-  # # optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-3, weight_decay=1e-5)
-  # # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.5)
+  model = GNN([128, 256, 256], [256, 256, num_classes], config["r_hop"], 0.1).to(config["device"])
+  # model = GNN(767, 64, [num_classes], r_hop).to(device)
+  # model = GNN(165, 20, [num_classes], r_hop).to(device)
+  loss_fn = nn.CrossEntropyLoss()
+  optimizer = optim.DPAdam(
+      l2_norm_clip=config["clipping_threshold"],
+      noise_multiplier=sigma,
+      batch_size=config["batch_size"],
+      params=model.parameters(),
+      lr=1e-3,
+      weight_decay=1e-5)
+  # optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-3, weight_decay=1e-5)
+  # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.5)
 
-  # # Train/Test
-  # for t in range(3000):
-  #   sampled_dataset = sample_edgelists(train_dataset, config["degree_bound"])
-  #   train_loader = NeighborLoader(sampled_dataset, 
-  #                                 num_neighbors=[n] * config["r_hop"],
-  #                                 batch_size=config["batch_size"],
-  #                                 shuffle=True)
-  #   # batch = train_loader.sample_batch()
-  #   batch = next(iter(train_loader))
-  #   train(batch, model, loss_fn, optimizer)
-  #   curr_epsilon = get_epsilon(gamma, t+1, alpha, config["delta"])
-  #   if (t + 1) % 100 == 0:
-  #     print("Training step:", t+1)
-  #     # batch_test(train_loader.sample_batch(), "TRAIN", model, loss_fn)
-  #     batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn)
-  #     batch_test(next(iter(test_loader)), "TEST", model, loss_fn)
-  #     print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, ["delta"]))
-  #     # print(" LR:", scheduler.get_last_lr()[0])
-  #   # scheduler.step()
-  #   del sampled_dataset, train_loader, batch
-  #   torch.cuda.empty_cache()
-  #   if curr_epsilon >= config["epsilon"]:
-  #     break
-  # test(test_loader, "TEST", model, loss_fn)
+  # Train/Test
+  for t in range(3000):
+    sampled_dataset = sample_edgelists(train_dataset, config["degree_bound"])
+    train_loader = NeighborLoader(sampled_dataset, 
+                                  num_neighbors=[n] * config["r_hop"],
+                                  batch_size=config["batch_size"],
+                                  shuffle=True)
+    # batch = train_loader.sample_batch()
+    batch = next(iter(train_loader))
+    train(batch, model, loss_fn, optimizer)
+    curr_epsilon = get_epsilon(gamma, t+1, alpha, config["delta"])
+    if (t + 1) % 100 == 0:
+      print("Training step:", t+1)
+      # batch_test(train_loader.sample_batch(), "TRAIN", model, loss_fn)
+      batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn)
+      batch_test(next(iter(test_loader)), "TEST", model, loss_fn)
+      print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, config["delta"]))
+      # print(" LR:", scheduler.get_last_lr()[0])
+    # scheduler.step()
+    del sampled_dataset, train_loader, batch
+    torch.cuda.empty_cache()
+    if curr_epsilon >= config["epsilon"]:
+      break
+  test(test_loader, "TEST", model, loss_fn)
   return 0
 
 if __name__ == '__main__':
