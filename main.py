@@ -107,8 +107,7 @@ def run_experiment(config):
     torch.cuda.empty_cache()
     if curr_epsilon >= config["epsilon"]:
       break
-  test(test_loader, "TEST", model, loss_fn)
-  return 0
+  return test(test_loader, "TEST", model, loss_fn)
 
 if __name__ == '__main__':
   main()
