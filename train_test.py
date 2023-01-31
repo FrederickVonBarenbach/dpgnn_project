@@ -43,3 +43,4 @@ def test(loader, split, model, loss_fn):
     correct /= size
     test_loss /= size
     print(f"{split.title()} Error: \n Avg Accuracy: {(100*correct):>0.1f}%, Avg Loss: {test_loss:>8f}")
+    return 100 * correct
