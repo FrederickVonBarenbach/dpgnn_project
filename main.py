@@ -1,6 +1,7 @@
+import os
 import torch
 import pandas as pd
-from configs.config import config, experiments
+from configs.config import config, experiments, iterations
 from torch_geometric.loader import NeighborLoader
 from model import *
 from train_test import *
@@ -9,22 +10,27 @@ from loader import *
 from dataset_loader import *
 from pyvacy import optim, analysis
 
+# TODO: Make it specify the output file
 def main():
+  print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
+
   results = pd.DataFrame(columns=[*list(config), "accuracy"])
   # do experiments
   for index in range(len(list(experiments.values())[0])):
-    row = config.copy()
-    # apply experiment conditions
-    for key in experiments:
-      config[key] = experiments[key][index]
+    for iteration in range(iterations):
+      row = config.copy()
+      exp_config = config.copy()
+      # apply experiment conditions
+      for key in experiments:
+        exp_config[key] = experiments[key][index]
 
-    # run experiment
-    # TODO: make it so that it dynamically returns the necessary metric
-    row["accuracy"] = run_experiment(config)
+      # run experiment
+      # TODO: make it so that it dynamically returns the necessary metric
+      row["accuracy"] = run_experiment(exp_config)
 
-    # add row
-    row = pd.DataFrame(row, index=[index])
-    results = pd.concat([results, row])
+      # add row
+      row = pd.DataFrame(row, index=[iteration])
+      results = pd.concat([results, row])
   # save results
   results.to_csv('results.csv', index=False)  
 
@@ -97,8 +103,8 @@ def run_experiment(config):
     if (t + 1) % 100 == 0:
       print("Training step:", t+1)
       # batch_test(train_loader.sample_batch(), "TRAIN", model, loss_fn)
-      batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn)
-      batch_test(next(iter(test_loader)), "TEST", model, loss_fn)
+      batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn, wordy=False)
+      batch_test(next(iter(test_loader)), "TEST", model, loss_fn, wordy=False)
       print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, config["delta"]))
       # print(" LR:", scheduler.get_last_lr()[0])
     # scheduler.step()

@@ -1,5 +1,5 @@
 config = {
-    "device": "gpu",
+    "device": "cuda",
     "r_hop": 1,
     "batch_size": 10000,
     "epsilon": 15,
@@ -11,6 +11,8 @@ config = {
 }
 
 experiments = {
-    "degree_bound": [10, 3, 2],
-    "r_hop": [1, 2, 3]
+    "degree_bound": [10, 10, 5, 5, 5, 3, 3, 3],
+    "r_hop": [1, 2, 1, 2, 3, 1, 2, 3]
 }
+
+iterations = 3
