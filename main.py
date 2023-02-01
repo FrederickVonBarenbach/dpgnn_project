@@ -10,14 +10,13 @@ from dataset_loader import *
 from pyvacy import optim, analysis
 
 def main():
-  results = pd.DataFrame(columns=[*list(experiments), "accuracy"])
+  results = pd.DataFrame(columns=[*list(config), "accuracy"])
   # do experiments
   for index in range(len(list(experiments.values())[0])):
-    row = {}
+    row = config.copy()
     # apply experiment conditions
     for key in experiments:
       config[key] = experiments[key][index]
-      row[key] = experiments[key][index]
 
     # run experiment
     # TODO: make it so that it dynamically returns the necessary metric

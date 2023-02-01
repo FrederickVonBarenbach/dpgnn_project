@@ -1,5 +1,5 @@
 config = {
-    "device": "cpu",
+    "device": "gpu",
     "r_hop": 1,
     "batch_size": 10000,
     "epsilon": 15,
