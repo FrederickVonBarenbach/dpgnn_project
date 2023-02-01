@@ -3,7 +3,7 @@
 To set up the project execute the following code
 
 ```
-git clone https://FrederickVonBarenbach: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@github.com/FrederickVonBarenbach/dpgnn_project.git
+git clone https://FrederickVonBarenbach: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@github.com/FrederickVonBarenbach/dpgnn_project.git
 cd dpgnn_project
 python -m venv .venv && source .venv/bin/activate
 python setup.py
