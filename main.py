@@ -21,11 +21,11 @@ def main():
     for iteration in range(iterations):
       torch.cuda.empty_cache()
       gc.collect()
-      row = config.copy()
       exp_config = config.copy()
       # apply experiment conditions
       for key in experiments:
         exp_config[key] = experiments[key][index]
+      row = exp_config.copy()
 
       # run experiment
       # TODO: make it so that it dynamically returns the necessary metric
