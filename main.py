@@ -1,6 +1,7 @@
 import os
 import torch
 import pandas as pd
+import gc
 from configs.config import config, experiments, iterations
 from torch_geometric.loader import NeighborLoader
 from model import *
@@ -12,12 +13,14 @@ from pyvacy import optim, analysis
 
 # TODO: Make it specify the output file
 def main():
+  # TODO: Make it optional to have these prints
   print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
-
   results = pd.DataFrame(columns=[*list(config), "accuracy"])
   # do experiments
   for index in range(len(list(experiments.values())[0])):
     for iteration in range(iterations):
+      torch.cuda.empty_cache()
+      gc.collect()
       row = config.copy()
       exp_config = config.copy()
       # apply experiment conditions
@@ -35,6 +38,8 @@ def main():
   results.to_csv('results.csv', index=False)  
 
 def run_experiment(config):
+  print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
+
   # get sigma according to the equation in section 6
   sigma = config["noise_multiplier"] * 2 * config["clipping_threshold"] * get_N(config["degree_bound"], config["r_hop"])
 
@@ -71,8 +76,6 @@ def run_experiment(config):
   print(f"C: {config['clipping_threshold']}, sigma: {sigma}, gamma: {gamma}")
   print(f"epsilon (for 1 iteration): {get_epsilon(gamma, 1, alpha, config['delta'])}, delta: {config['delta']}, alpha: {alpha}")
 
-    
-
   # setup model
   
   model = GNN([128, 256, 256], [256, 256, num_classes], config["r_hop"], 0.1).to(config["device"])
@@ -101,6 +104,7 @@ def run_experiment(config):
     train(batch, model, loss_fn, optimizer)
     curr_epsilon = get_epsilon(gamma, t+1, alpha, config["delta"])
     if (t + 1) % 100 == 0:
+      print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
       print("Training step:", t+1)
       # batch_test(train_loader.sample_batch(), "TRAIN", model, loss_fn)
       batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn, wordy=False)
@@ -110,9 +114,11 @@ def run_experiment(config):
     # scheduler.step()
     del sampled_dataset, train_loader, batch
     torch.cuda.empty_cache()
+    gc.collect()
     if curr_epsilon >= config["epsilon"]:
       break
-  return test(test_loader, "TEST", model, loss_fn)
+  test_acc = test(test_loader, "TEST", model, loss_fn)
+  return test_acc
 
 if __name__ == '__main__':
   main()
