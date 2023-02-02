@@ -5,7 +5,8 @@ if __name__ == '__main__':
     os.system('pip install matplotlib')
     os.system('pip install numpy')
     os.system('pip install pandas')
-    
+    os.system('pip install seaborn')
+
     import torch
     from configs.config import config
 
