@@ -7,6 +7,8 @@ config = {
     "degree_bound": 10,
     "clipping_threshold": 0.005, # how should I get C?
     "noise_multiplier": 2,
+    "lr": 1e-3, 
+    "weight_decay": 1e-5,
     "dataset": "ogb_mag"
 }
 
@@ -15,4 +17,4 @@ experiments = {
     "r_hop": [1, 2, 1, 2, 3, 1, 2, 3]
 }
 
-iterations = 3
+iterations = 1

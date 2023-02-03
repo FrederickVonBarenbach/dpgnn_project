@@ -32,7 +32,7 @@ def batch_test(batch, split, model, loss_fn, wordy=True):
   return test_loss, correct
 
 # test
-def test(loader, split, model, loss_fn):
+def test(loader, split, model, loss_fn, wordy=True):
     size = len(loader)
     model.eval()
     test_loss, correct = 0, 0
@@ -42,5 +42,6 @@ def test(loader, split, model, loss_fn):
         correct += batch_correct
     correct /= size
     test_loss /= size
-    print(f"{split.title()} Error: \n Avg Accuracy: {(100*correct):>0.1f}%, Avg Loss: {test_loss:>8f}")
-    return 100 * correct
+    if wordy:
+      print(f"{split.title()} Error: \n Avg Accuracy: {(100*correct):>0.1f}%, Avg Loss: {test_loss:>8f}")
+    return test_loss, correct
