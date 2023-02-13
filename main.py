@@ -29,18 +29,23 @@ def main():
       torch.cuda.empty_cache()
       gc.collect()
       exp_config = config.copy()
+      line = "Experiment " + str((index+1) * (iteration+1)) + ": ["
       # apply experiment conditions
       for key in experiments:
         exp_config[key] = experiments[key][index]
+        line += key + "=" + str(experiments[key][index]) + " "
+      line = line[:-1]
+      line += "]"
+      print(line)
 
       # run experiment
       # TODO: make it so that it dynamically returns the necessary metric
       if config["setup"] == "original":
-        run_original_experiment(exp_config, data_file, wordy=True)
+        run_original_experiment(exp_config, data_file, wordy=False)
       elif config["setup"] == "ours":
-        run_our_experiment(exp_config, data_file, wordy=True)
+        run_our_experiment(exp_config, data_file, wordy=False)
       elif config["setup"] == "non-dp":
-        run_non_private_experiment(exp_config, data_file, wordy=True)
+        run_non_private_experiment(exp_config, data_file, wordy=False)
 
 
 def run_non_private_experiment(config, data_file, wordy=False):
