@@ -29,7 +29,7 @@ def main():
       torch.cuda.empty_cache()
       gc.collect()
       exp_config = config.copy()
-      line = "Experiment " + str((index+1) * (iteration+1)) + ": ["
+      line = "Experiment " + str((iteration+1) + (index*iterations)) + ": ["
       # apply experiment conditions
       for key in experiments:
         exp_config[key] = experiments[key][index]
@@ -73,11 +73,11 @@ def run_non_private_experiment(config, data_file, wordy=False):
 
   # setup loaders
   train_loader = NeighborLoader(train_dataset, 
-                                num_neighbors=[n] * config["r_hop"],
+                                num_neighbors=[-1] * config["r_hop"],
                                 batch_size=config["batch_size"],
                                 shuffle=True)
   test_loader = NeighborLoader(test_dataset,
-                               num_neighbors=[n_test] * config["r_hop"],
+                               num_neighbors=[-1] * config["r_hop"],
                                batch_size=config["batch_size"])
 
   # setup model
@@ -145,11 +145,11 @@ def run_original_experiment(config, data_file, wordy=False):
   # setup loaders
   sampled_dataset = sample_edgelists(train_dataset, config["degree_bound"])
   train_loader = NeighborLoader(sampled_dataset, 
-                                num_neighbors=[n] * config["r_hop"],
+                                num_neighbors=[-1] * config["r_hop"],
                                 batch_size=config["batch_size"],
                                 shuffle=True)
   test_loader = NeighborLoader(test_dataset,
-                               num_neighbors=[n_test] * config["r_hop"],
+                               num_neighbors=[-1] * config["r_hop"],
                                batch_size=config["batch_size"])
 
   # search for alpha
@@ -226,7 +226,7 @@ def run_our_experiment(config, data_file, wordy=False):
 
   # setup loaders
   test_loader = NeighborLoader(test_dataset,
-                               num_neighbors=[n_test] * config["r_hop"],
+                               num_neighbors=[-1] * config["r_hop"],
                                batch_size=config["batch_size"])
 
   # search for alpha
@@ -250,7 +250,7 @@ def run_our_experiment(config, data_file, wordy=False):
   while True:
     sampled_dataset = sample_edgelists(train_dataset, config["degree_bound"])
     train_loader = NeighborLoader(sampled_dataset, 
-                                  num_neighbors=[n] * config["r_hop"],
+                                  num_neighbors=[-1] * config["r_hop"],
                                   batch_size=config["batch_size"],
                                   shuffle=True)
     curr_epsilon = get_epsilon(gamma, t, alpha, config["delta"])

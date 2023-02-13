@@ -44,10 +44,11 @@ if __name__ == '__main__':
         
         df = df.groupby([axes[0], axes[1], "step", *variables], as_index=False).mean(numeric_only=True)
         df = df.loc[df.groupby([axes[0], axes[1]])["epsilon"].idxmin()]
-        print(df)
+        with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+            print(df)
         df = pd.pivot_table(df, values=value, index=[axes[0]], columns=[axes[1]], aggfunc=np.max)
         sns.heatmap(df, annot=True, fmt=".2%", vmax=0.3, vmin=0.22)
         plt.title(value + " heatmap")
-        plt.savefig("./figs/best_heatmap_ours_eps=10.png")
+        plt.savefig("./figs/best_heatmap.png")
 
     
