@@ -18,18 +18,19 @@ def main():
   print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
   data_file = "./data/results.csv"
   if not os.path.isfile(data_file):
-    header = [*list(config), "sigma", "alpha", "gamma", "step", "train_acc", "test_acc"]
+    header = [*list(config), "clipping_threshold", "sigma", "alpha", "gamma", "step", "train_acc", "test_acc"]
     with open(data_file, 'w') as f_object:
         writer_object = writer(f_object)
         writer_object.writerow(header)
         f_object.close()
   # do experiments
-  for index in range(len(list(experiments.values())[0])):
-    for iteration in range(iterations):
+  num_experiments = len(list(experiments.values())[0])
+  for iteration in range(iterations):
+    for index in range(num_experiments):
       torch.cuda.empty_cache()
       gc.collect()
       exp_config = config.copy()
-      line = "Experiment " + str((iteration+1) + (index*iterations)) + ": ["
+      line = "Experiment " + str((index+1) + (iteration*num_experiments)) + ": ["
       # apply experiment conditions
       for key in experiments:
         exp_config[key] = experiments[key][index]
@@ -40,22 +41,24 @@ def main():
 
       # run experiment
       # TODO: make it so that it dynamically returns the necessary metric
-      if config["setup"] == "original":
+      if exp_config["setup"] == "original":
         run_original_experiment(exp_config, data_file, wordy=False)
-      elif config["setup"] == "ours":
+      elif exp_config["setup"] == "ours":
         run_our_experiment(exp_config, data_file, wordy=False)
-      elif config["setup"] == "non-dp":
+      elif exp_config["setup"] == "non-dp":
         run_non_private_experiment(exp_config, data_file, wordy=False)
 
 
 def run_non_private_experiment(config, data_file, wordy=False):
   if wordy:
+    print("Running non-DP setup")
     print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
 
   # make a new data row
   row = config.copy()
 
   # add constants
+  row["clipping_threshold"] = 0
   row["sigma"] = 0
   row["alpha"] = 0
   row["gamma"] = 0
@@ -122,14 +125,11 @@ def run_non_private_experiment(config, data_file, wordy=False):
 
 def run_original_experiment(config, data_file, wordy=False):
   if wordy:
+    print("Running original setup")
     print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
 
   # make a new data row
   row = config.copy()
-
-  # get sigma according to the equation in section 6
-  sigma = config["noise_multiplier"] * 2 * config["clipping_threshold"] * get_N(config["degree_bound"], config["r_hop"])
-  row["sigma"] = sigma
 
   # prepare data
   dataset, num_classes = load_dataset(config["dataset"])
@@ -137,6 +137,14 @@ def run_original_experiment(config, data_file, wordy=False):
     train_dataset, test_dataset = apply_train_test_mask(dataset)
   else:
     train_dataset, test_dataset = train_test_split(dataset, 0.2)
+
+  # get clipping threshold by using clipping_percentile of the gradients
+  clipping_threshold = get_clipping_threshold(train_dataset, config)
+  row["clipping_threshold"] = clipping_threshold
+
+  # get sigma according to the equation in section 6
+  sigma = get_sigma(config, clipping_threshold)
+  row["sigma"] = sigma
 
   # data parameters
   n, d = train_dataset.x.size()
@@ -153,20 +161,14 @@ def run_original_experiment(config, data_file, wordy=False):
                                batch_size=config["batch_size"])
 
   # search for alpha
-  alpha, gamma = search_for_alpha(n, sigma, config)
+  alpha, gamma = search_for_alpha(n, sigma, clipping_threshold, config)
   row["alpha"] = alpha
   row["gamma"] = gamma
 
   # setup model
   model = GNN(config["encoder_dimensions"], config["decoder_dimensions"], config["r_hop"], config["dropout"]).to(config["device"])
   loss_fn = nn.CrossEntropyLoss()
-  optimizer = optim.DPAdam(
-      l2_norm_clip=config["clipping_threshold"],
-      noise_multiplier=sigma,
-      batch_size=config["batch_size"],
-      params=model.parameters(),
-      lr=config["lr"],
-      weight_decay=config["weight_decay"])
+  optimizer = get_optimizer(config, clipping_threshold, sigma, model)
 
   # train/test
   t = 1
@@ -204,14 +206,11 @@ def run_original_experiment(config, data_file, wordy=False):
 
 def run_our_experiment(config, data_file, wordy=False):
   if wordy:
+    print("Running our setup")
     print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
 
   # make a new data row
   row = config.copy()
-
-  # get sigma according to the equation in section 6
-  sigma = get_sigma(config)
-  row["sigma"] = sigma
 
   # prepare data
   dataset, num_classes = load_dataset(config["dataset"])
@@ -219,6 +218,14 @@ def run_our_experiment(config, data_file, wordy=False):
     train_dataset, test_dataset = apply_train_test_mask(dataset)
   else:
     train_dataset, test_dataset = train_test_split(dataset, 0.2)
+
+  # get clipping threshold by using clipping_percentile of the gradients
+  clipping_threshold = get_clipping_threshold(train_dataset, config)
+  row["clipping_threshold"] = clipping_threshold
+
+  # get sigma according to the equation in section 6
+  sigma = get_sigma(config, clipping_threshold)
+  row["sigma"] = sigma
 
   # data parameters
   n, d = train_dataset.x.size()
@@ -230,20 +237,14 @@ def run_our_experiment(config, data_file, wordy=False):
                                batch_size=config["batch_size"])
 
   # search for alpha
-  alpha, gamma = search_for_alpha(n, sigma, config)
+  alpha, gamma = search_for_alpha(n, sigma, clipping_threshold, config)
   row["alpha"] = alpha
   row["gamma"] = gamma
 
   # setup model
   model = GNN(config["encoder_dimensions"], config["decoder_dimensions"], config["r_hop"], config["dropout"]).to(config["device"])
   loss_fn = nn.CrossEntropyLoss()
-  optimizer = optim.DPAdam(
-      l2_norm_clip=config["clipping_threshold"],
-      noise_multiplier=sigma,
-      batch_size=config["batch_size"],
-      params=model.parameters(),
-      lr=config["lr"],
-      weight_decay=config["weight_decay"])
+  optimizer = get_optimizer(config, clipping_threshold, sigma, model)
 
   # train/test
   t = 1
@@ -284,10 +285,10 @@ def run_our_experiment(config, data_file, wordy=False):
     t = t+1
 
 
-def search_for_alpha(n, sigma, config):
+def search_for_alpha(n, sigma, clipping_threshold, config):
   alpha, gamma = 1.01, np.inf
   for alpha_ in np.linspace(1.01, 40, num=200):
-    gamma_ = get_gamma(n, config["batch_size"], config["clipping_threshold"], sigma, config["r_hop"], 
+    gamma_ = get_gamma(n, config["batch_size"], clipping_threshold, sigma, config["r_hop"], 
                       config["degree_bound"], alpha_, config["delta"])
 
     if (get_epsilon(gamma_, 1, alpha_, config["delta"]) < get_epsilon(gamma, 1, alpha, config["delta"])):
@@ -296,8 +297,35 @@ def search_for_alpha(n, sigma, config):
   return alpha, gamma
 
 
-def get_sigma(config):
-  return config["noise_multiplier"] * 2 * config["clipping_threshold"] * get_N(config["degree_bound"], config["r_hop"])
+def get_clipping_threshold(dataset, config):
+  model = GNN(config["encoder_dimensions"], config["decoder_dimensions"], config["r_hop"], config["dropout"]).to(config["device"])
+  loss_fn = nn.CrossEntropyLoss()
+  sampled_dataset = sample_edgelists(dataset, config["degree_bound"])
+  dataloader = NeighborLoader(sampled_dataset, 
+                              num_neighbors=[-1] * config["r_hop"],
+                              batch_size=config["batch_size"],
+                              shuffle=True)
+  clipping_threshold = config["clipping_multiplier"] * get_gradient_percentile(model, loss_fn, dataloader, config["clipping_percentile"])
+  torch.cuda.empty_cache()
+  gc.collect()
+  return clipping_threshold
+
+
+def get_sigma(config, clipping_threshold):
+  return config["noise_multiplier"] * 2 * clipping_threshold * get_N(config["degree_bound"], config["r_hop"])
+
+
+def get_optimizer(config, clipping_threshold, sigma, model):
+  optimizer = None
+  if config["optimizer"] == "DPSGD":
+    optimizer = optim.DPSGD(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, batch_size=config["batch_size"],
+                            params=model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
+  elif config["optimizer"] == "DPAdam":
+    optimizer = optim.DPAdam(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, batch_size=config["batch_size"],
+                             params=model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
+  elif config["optimizer"] == "DPAdamFixed":
+    pass
+  return optimizer
 
 
 if __name__ == '__main__':

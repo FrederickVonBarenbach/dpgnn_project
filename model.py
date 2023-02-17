@@ -28,4 +28,4 @@ class GNN(torch.nn.Module):
         x = F.relu(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
       x = self.decoder(x)
-      return F.log_softmax(x, dim=1)
+      return F.log_softmax(x, dim=1) # TODO: is this softmax necessary?

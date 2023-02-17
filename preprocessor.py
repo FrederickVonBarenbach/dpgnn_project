@@ -98,6 +98,23 @@ def sample_edgelists(dataset, K):
   return Data(x=x, y=y, edge_index=edge_index)
 
 
+def get_gradient_percentile(model, loss_fn, dataloader, percentile):
+  # run one iteration without training
+  batch = next(iter(dataloader))
+  pred = model(batch)[:batch.batch_size]
+  y = batch.y[:batch.batch_size]
+  loss = loss_fn(pred, y)
+  loss.backward()
+  # store grads
+  grads = []
+  for param in model.parameters():
+      grads.append(param.grad.view(-1))
+  grads = torch.cat(grads)
+  # get percentile
+  clipping_threshold = torch.quantile(grads, percentile)
+  return clipping_threshold.item()
+
+
 def add_self_edges(dataset):
   x = dataset.x
   self_edges = torch.stack((torch.arange(x.size(dim=0)), torch.arange(x.size(dim=0))))
