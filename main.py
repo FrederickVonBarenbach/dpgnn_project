@@ -3,7 +3,7 @@ import torch
 import pandas as pd
 import gc
 from csv import writer
-from configs.config import config, experiments, iterations
+from configs.config import config, experiments, iterations, logging
 from torch_geometric.loader import NeighborLoader
 from model import *
 from train_test import *
@@ -11,6 +11,8 @@ from analysis import *
 from loader import *
 from dataset_loader import *
 from pyvacy import optim, analysis
+
+MAX_DEGREE = 100 # this is just so that graphs can fit in GPU
 
 # TODO: Make it specify the output file
 def main():
@@ -42,11 +44,11 @@ def main():
       # run experiment
       # TODO: make it so that it dynamically returns the necessary metric
       if exp_config["setup"] == "original":
-        run_original_experiment(exp_config, data_file, wordy=False)
+        run_original_experiment(exp_config, data_file, wordy=logging)
       elif exp_config["setup"] == "ours":
-        run_our_experiment(exp_config, data_file, wordy=False)
+        run_our_experiment(exp_config, data_file, wordy=logging)
       elif exp_config["setup"] == "non-dp":
-        run_non_private_experiment(exp_config, data_file, wordy=False)
+        run_non_private_experiment(exp_config, data_file, wordy=logging)
 
 
 def run_non_private_experiment(config, data_file, wordy=False):
@@ -65,23 +67,19 @@ def run_non_private_experiment(config, data_file, wordy=False):
 
   # prepare data
   dataset, num_classes = load_dataset(config["dataset"])
-  if hasattr(dataset, 'train_mask') and hasattr(dataset, 'test_mask'):
-    train_dataset, test_dataset = apply_train_test_mask(dataset)
-  else:
-    train_dataset, test_dataset = train_test_split(dataset, 0.2)
-
-  # data parameters
-  n, d = train_dataset.x.size()
-  n_test = test_dataset.x.size(dim=0)
+  if not hasattr(dataset, 'train_mask'):
+    train_test_split(dataset, 0.2)
 
   # setup loaders
-  train_loader = NeighborLoader(train_dataset, 
-                                num_neighbors=[-1] * config["r_hop"],
+  train_loader = NeighborLoader(dataset, 
+                                num_neighbors=[MAX_DEGREE] * config["r_hop"],
                                 batch_size=config["batch_size"],
-                                shuffle=True)
-  test_loader = NeighborLoader(test_dataset,
-                               num_neighbors=[-1] * config["r_hop"],
-                               batch_size=config["batch_size"])
+                                shuffle=True,
+                                input_nodes=dataset.train_mask)
+  test_loader = NeighborLoader(dataset,
+                               num_neighbors=[MAX_DEGREE] * config["r_hop"],
+                               batch_size=config["batch_size"],
+                               input_nodes=dataset.test_mask)
 
   # setup model
   model = GNN(config["encoder_dimensions"], config["decoder_dimensions"], config["r_hop"], config["dropout"]).to(config["device"])
@@ -93,7 +91,7 @@ def run_non_private_experiment(config, data_file, wordy=False):
 
   # train/test
   t = 1
-  max_iters = 10000
+  max_iters = 4000
   while True:
     # train if haven't expended all of budget
     if t < max_iters:
@@ -133,35 +131,36 @@ def run_original_experiment(config, data_file, wordy=False):
 
   # prepare data
   dataset, num_classes = load_dataset(config["dataset"])
-  if hasattr(dataset, 'train_mask') and hasattr(dataset, 'test_mask'):
-    train_dataset, test_dataset = apply_train_test_mask(dataset)
-  else:
-    train_dataset, test_dataset = train_test_split(dataset, 0.2)
+  if not hasattr(dataset, 'train_mask'):
+    train_test_split(dataset, 0.2)
 
   # get clipping threshold by using clipping_percentile of the gradients
-  clipping_threshold = get_clipping_threshold(train_dataset, config)
+  clipping_threshold = get_clipping_threshold(dataset, config) # TODO: use train_mask
   row["clipping_threshold"] = clipping_threshold
 
   # get sigma according to the equation in section 6
   sigma = get_sigma(config, clipping_threshold)
   row["sigma"] = sigma
 
-  # data parameters
-  n, d = train_dataset.x.size()
-  n_test = test_dataset.x.size(dim=0)
-
   # setup loaders
-  sampled_dataset = sample_edgelists(train_dataset, config["degree_bound"])
+  sampled_dataset = sample_edgelists(dataset, config["degree_bound"])
   train_loader = NeighborLoader(sampled_dataset, 
                                 num_neighbors=[-1] * config["r_hop"],
                                 batch_size=config["batch_size"],
+                                input_nodes=sampled_dataset.train_mask,
                                 shuffle=True)
-  test_loader = NeighborLoader(test_dataset,
-                               num_neighbors=[-1] * config["r_hop"],
-                               batch_size=config["batch_size"])
+  test_loader = NeighborLoader(dataset,
+                               num_neighbors=[MAX_DEGREE] * config["r_hop"],
+                               batch_size=config["batch_size"],
+                               input_nodes=dataset.test_mask)
+  non_priv_train_loader = NeighborLoader(dataset,
+                                         num_neighbors=[MAX_DEGREE] * config["r_hop"],
+                                         batch_size=config["batch_size"],
+                                         input_nodes=dataset.train_mask,
+                                         shuffle=True)
 
   # search for alpha
-  alpha, gamma = search_for_alpha(n, sigma, clipping_threshold, config)
+  alpha, gamma = search_for_alpha(dataset.train_mask.sum().item(), sigma, clipping_threshold, config)
   row["alpha"] = alpha
   row["gamma"] = gamma
 
@@ -182,7 +181,7 @@ def run_original_experiment(config, data_file, wordy=False):
       if wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
         print("Training step:", t)
-      _, train_acc = batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn, wordy=wordy)
+      _, train_acc = batch_test(next(iter(non_priv_train_loader)), "TRAIN", model, loss_fn, wordy=wordy)
       _, test_acc = test(test_loader, "TEST", model, loss_fn, wordy=wordy)
       if wordy:
         print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, config["delta"]))
@@ -214,10 +213,8 @@ def run_our_experiment(config, data_file, wordy=False):
 
   # prepare data
   dataset, num_classes = load_dataset(config["dataset"])
-  if hasattr(dataset, 'train_mask') and hasattr(dataset, 'test_mask'):
-    train_dataset, test_dataset = apply_train_test_mask(dataset)
-  else:
-    train_dataset, test_dataset = train_test_split(dataset, 0.2)
+  if not hasattr(dataset, 'train_mask'):
+    train_test_split(dataset, 0.2)
 
   # get clipping threshold by using clipping_percentile of the gradients
   clipping_threshold = get_clipping_threshold(train_dataset, config)
@@ -227,17 +224,19 @@ def run_our_experiment(config, data_file, wordy=False):
   sigma = get_sigma(config, clipping_threshold)
   row["sigma"] = sigma
 
-  # data parameters
-  n, d = train_dataset.x.size()
-  n_test = test_dataset.x.size(dim=0)
-
   # setup loaders
-  test_loader = NeighborLoader(test_dataset,
-                               num_neighbors=[-1] * config["r_hop"],
-                               batch_size=config["batch_size"])
+  test_loader = NeighborLoader(dataset,
+                               num_neighbors=[MAX_DEGREE] * config["r_hop"],
+                               batch_size=config["batch_size"],
+                               input_nodes=dataset.test_mask)
+  non_priv_train_loader = NeighborLoader(dataset,
+                                         num_neighbors=[MAX_DEGREE] * config["r_hop"],
+                                         batch_size=config["batch_size"], 
+                                         input_nodes=dataset.train_mask,
+                                         shuffle=True)
 
   # search for alpha
-  alpha, gamma = search_for_alpha(n, sigma, clipping_threshold, config)
+  alpha, gamma = search_for_alpha(dataset.train_mask.sum().item(), sigma, clipping_threshold, config)
   row["alpha"] = alpha
   row["gamma"] = gamma
 
@@ -249,10 +248,11 @@ def run_our_experiment(config, data_file, wordy=False):
   # train/test
   t = 1
   while True:
-    sampled_dataset = sample_edgelists(train_dataset, config["degree_bound"])
+    sampled_dataset = sample_edgelists(dataset, config["degree_bound"])
     train_loader = NeighborLoader(sampled_dataset, 
                                   num_neighbors=[-1] * config["r_hop"],
                                   batch_size=config["batch_size"],
+                                  input_nodes=sampled_dataset.train_mask,
                                   shuffle=True)
     curr_epsilon = get_epsilon(gamma, t, alpha, config["delta"])
     # train if haven't expended all of budget
@@ -263,7 +263,7 @@ def run_our_experiment(config, data_file, wordy=False):
       if wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
         print("Training step:", t)
-      _, train_acc = batch_test(next(iter(train_loader)), "TRAIN", model, loss_fn, wordy=wordy)
+      _, train_acc = batch_test(next(iter(non_priv_train_loader)), "TRAIN", model, loss_fn, wordy=wordy)
       _, test_acc = test(test_loader, "TEST", model, loss_fn, wordy=wordy)
       if wordy:
         print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, config["delta"]))
@@ -304,6 +304,7 @@ def get_clipping_threshold(dataset, config):
   dataloader = NeighborLoader(sampled_dataset, 
                               num_neighbors=[-1] * config["r_hop"],
                               batch_size=config["batch_size"],
+                              input_nodes=sampled_dataset.train_mask,
                               shuffle=True)
   clipping_threshold = config["clipping_multiplier"] * get_gradient_percentile(model, loss_fn, dataloader, config["clipping_percentile"])
   torch.cuda.empty_cache()
@@ -324,7 +325,12 @@ def get_optimizer(config, clipping_threshold, sigma, model):
     optimizer = optim.DPAdam(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, batch_size=config["batch_size"],
                              params=model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
   elif config["optimizer"] == "DPAdamFixed":
-    pass
+    from dp_nlp.adam_corr import AdamCorr
+    # TODO: What is eps_root?
+    optimizer = AdamCorr(dp_l2_norm_clip=clipping_threshold, dp_noise_multiplier=sigma, dp_batch_size=config["batch_size"],
+                         eps_root=1e-8, params=model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
+  elif config["optimizer"] == "Adam":
+    optimizer = torch.optim.Adam(params=model.parameters(), lr=config["lr"], weight_decay=config["weight_decay"])
   return optimizer
 
 

@@ -1,0 +1,3 @@
+[submodule "dp_nlp"]
+	path = dp_nlp
+	url = git@github.com:qiaoyuet/dp_nlp.git

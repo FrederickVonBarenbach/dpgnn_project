@@ -2,32 +2,16 @@ import torch
 from torch_geometric.data import Data
 from configs.config import config
 
-# this method partitions based on nodes (so edges between splits are not used)
+# this method adds a train and test mask to dataset
 def train_test_split(dataset, test_ratio):
-    x, y, edge_index= dataset.x, dataset.y, dataset.edge_index
-    n = x.size(dim=0)
+    n = dataset.x.size(dim=0)
     shuffle_ordering = torch.randperm(n)
-    # edges need to be remapped based on shuffle ordering
-    # (i.e if nodes 3 and 4 are put in indices 5 and 2 respectively, 
-    #      edge 3 -> 4 would becomes 5 -> 2)
-    edge_mapping = torch.zeros(n, dtype=torch.long)
-    edge_mapping[shuffle_ordering] = torch.arange(n)
-    # shuffle x and y and apply to edge_index
-    x = x[shuffle_ordering]
-    y = y[shuffle_ordering]
-    edge_index = edge_mapping[edge_index]
     # mask based on train and test split
     mask = torch.zeros(n, dtype=torch.bool)
     train_slice = int((1-test_ratio)*n)
-    mask[:train_slice] = True
-    # apply split
-    x_train, x_test = x[mask], x[~mask]
-    y_train, y_test = y[mask], y[~mask]
-    # get edges for each split only if both nodes are in the respective split
-    edge_index_train = edge_index[:, torch.logical_and(*mask[edge_index])]
-    edge_index_test = edge_index[:, torch.logical_and(*~mask[edge_index])] - train_slice
-    return Data(x=x_train, y=y_train, edge_index=edge_index_train), \
-           Data(x=x_test, y=y_test, edge_index=edge_index_test)
+    mask[shuffle_ordering[:train_slice]] = True
+    dataset.train_mask = mask
+    dataset.test_mask = ~mask
 
 
 def apply_train_test_mask(dataset):
@@ -76,9 +60,10 @@ def get_adjacency_matrix(edge_index, num_nodes):
 
 
 def sample_edgelists(dataset, K):
-  dataset = dataset.to(config['device'])
+  dataset = dataset.clone().to(config['device'])
   x, y = dataset.x, dataset.y
   edge_index = dataset.edge_index
+  train_mask, test_mask = dataset.train_mask, dataset.test_mask
   A = get_adjacency_matrix(edge_index, x.size(dim=0))
   eps = 0.0000001
   out_degrees = torch.sparse.sum(A, dim=1).to_dense() + eps
@@ -94,13 +79,18 @@ def sample_edgelists(dataset, K):
   # filter x, y, and edge_index according to nodes with out-degree 
   # greater than K
   x, y = x[mask], y[mask]
+  train_mask, test_mask = train_mask[mask], test_mask[mask]
   edge_index = filter_edge_index(sampled_edge_index, mask)
-  return Data(x=x, y=y, edge_index=edge_index)
+  dataset.x, dataset.y = x, y
+  dataset.edge_index = edge_index
+  dataset.train_mask, dataset.test_mask = train_mask, test_mask
+  return dataset.cpu()
 
 
 def get_gradient_percentile(model, loss_fn, dataloader, percentile):
   # run one iteration without training
   batch = next(iter(dataloader))
+  batch = batch.to(config["device"])
   pred = model(batch)[:batch.batch_size]
   y = batch.y[:batch.batch_size]
   loss = loss_fn(pred, y)
