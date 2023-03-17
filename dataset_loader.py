@@ -14,7 +14,7 @@ def load_dataset(name):
                        test_mask = dataset.test_mask_dict['paper'])
         # # add some transformations
         # dataset = add_self_edges(dataset)
-        # dataset = make_undirected(dataset)
+        dataset = make_undirected(dataset)
         # get number of classes
         num_classes = torch.unique(dataset['y']).size(dim=0)
     elif name == "reddit":
