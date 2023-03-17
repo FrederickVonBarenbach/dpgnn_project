@@ -8,7 +8,6 @@ from torch_geometric.loader import NeighborLoader
 from model import *
 from train_test import *
 from analysis import *
-from loader import *
 from dataset_loader import *
 from pyvacy import optim, analysis
 
@@ -351,7 +350,7 @@ if __name__ == '__main__':
   parser.add_argument("--dataset", help="dataset to be used", default="ogb_mag", choices=["ogb_mag", "reddit"], type=str)
   parser.add_argument("--setup", help="setup to be used", default="ours", choices=["original", "ours", "non-dp"], type=str)
   # environment variables
-  parser.add_argument("--device", help="which device to use", default="cuda", choices=["cpu", "cuda"] type=str)
+  parser.add_argument("--device", help="which device to use", default="cuda", choices=["cpu", "cuda"], type=str)
   parser.add_argument("--results_path", help="path to results file", default="./data/results.csv", type=str)
   parser.add_argument("--wordy", help="log everything", action="store_true")
   parser.add_argument("--max_degree", help="the maximum number of neighbours to include when testing model", default=-1, type=int)

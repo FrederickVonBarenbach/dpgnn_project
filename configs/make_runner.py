@@ -26,8 +26,9 @@ enums = {
     "optimizer": ["DPSGD", "DPAdam", "DPAdamFixed", "Adam"],
     "dataset": ["ogb_mag", "reddit"]
 }
-def config_to_command(config, results_path):
+def config_to_command(config, json_obj):
     command = "python main.py"
+    # experiment settings
     for key, value in config.items():
         command += " --" + key + " "
         if key in enums.keys() and isinstance(value, int):
@@ -36,7 +37,14 @@ def config_to_command(config, results_path):
             command += " ".join(value)
         else:
             command += str(value)
-    return command + " --results_path " + str(results_path) 
+    # environment settings
+    for key, value in json_obj.items():
+        if key == "wordy":
+            if value == True:
+                command += " --wordy" 
+        elif key != "combine":
+            command += " --" + key + " " + str(value)
+    return command
 
 
 # config = {
@@ -108,14 +116,14 @@ def config_to_command(config, results_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in_path", help="input JSON", type=str)
-    parser.add_argument("--out_path", help="output bash", default="./runner.sh", type=str)
+    parser.add_argument("in_path", help="input JSON", type=str)
+    parser.add_argument("--out_path", help="output bash", default="../runner.sh", type=str)
     args = parser.parse_args()
 
     # parse JSON
     with open(args.in_path) as json_file:
-        configs = json.load(json_file)
-        grid = make_grid(*configs["combine"])
+        json_obj = json.load(json_file)
+        grid = make_grid(*json_obj["combine"])
     
     # make runner
     n_configs = len(next(iter(grid.values())))
@@ -125,7 +133,7 @@ if __name__ == '__main__':
             config = {}
             for key, value in grid.items():
                 config[key] = value[i]
-            command = config_to_command(config, args.results_path)
+            command = config_to_command(config, json_obj)
             # write command
             f_object.write(command + "\n")
         f_object.close()

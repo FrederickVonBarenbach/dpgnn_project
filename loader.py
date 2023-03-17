@@ -2,7 +2,6 @@ import torch
 from torch_geometric.data import Data
 from torch_geometric.utils import index_to_mask
 from torch_geometric.loader import NeighborLoader
-from configs.config import config
 
 class SubgraphLoader():
   def __init__(self, dataset, batch_size, K, r):

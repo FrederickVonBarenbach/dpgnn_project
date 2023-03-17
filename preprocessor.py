@@ -34,7 +34,7 @@ def get_adjacency_matrix(edge_index, num_nodes, device):
 
 
 def sample_edgelists(dataset, K, device):
-  dataset = dataset.to(device)
+  dataset = dataset.clone().to(device)
   x, y = dataset.x, dataset.y
   edge_index = dataset.edge_index
   train_mask, test_mask = dataset.train_mask, dataset.test_mask
