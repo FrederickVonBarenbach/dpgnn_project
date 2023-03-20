@@ -6,7 +6,7 @@
 #SBATCH --mail-user=f.shpilevskiy@gmail.com
 #SBATCH --mail-type=ALL
 
-module load python/3.6 cuda cudnn
+module load python/3.7 cuda cudnn
 
 # Prepare virtualenv
 source .venv/bin/activate

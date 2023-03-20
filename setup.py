@@ -8,12 +8,11 @@ if __name__ == '__main__':
     os.system('pip install seaborn')
 
     import torch
-    from configs.config import config
 
     os.environ['TORCH'] = torch.__version__
     os.system("echo Torch version ${TORCH}")
 
-    if config['device'] == "cuda":
+    if torch.cuda.is_available():
         #NVIDIA GPU version
         os.system('pip uninstall torch-scatter torch-sparse torch-geometric torch-cluster  --y')
         os.system('pip install torch-scatter -f https://data.pyg.org/whl/torch-${TORCH}.html')
