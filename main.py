@@ -13,14 +13,16 @@ from pyvacy import optim, analysis
 
 
 def run_experiment(experiment_vars, config):
-  print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
+  if not config.compute_canada:
+    print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
   line = "Experiment : ["
   # apply experiment conditions
   for key in experiment_vars:
     line += key + "=" + str(experiment_vars[key]) + ", "
   line = line[:-2]
   line += "]"
-  print(line)
+  if not config.compute_canada:
+    print(line)
 
   # run experiment
   # TODO: make it so that it dynamically returns the necessary metric
@@ -93,10 +95,13 @@ def run_non_private_experiment(config, experiment_vars):
       row["train_acc"] = train_acc
       row["test_acc"] = test_acc
       # write data to csv
-      with open(config.results_path, 'a') as f_object:
-        writer_object = writer(f_object)
-        writer_object.writerow(row.values())
-        f_object.close()
+      if not config.compute_canada:
+        with open(config.results_path, 'a') as f_object:
+          writer_object = writer(f_object)
+          writer_object.writerow(row.values())
+          f_object.close()
+      else:
+        print(", ".join(map(str, row.values())))
 
     if t >= max_iters:
       break
@@ -178,10 +183,13 @@ def run_original_experiment(config, experiment_vars):
       row["train_acc"] = train_acc
       row["test_acc"] = test_acc
       # write data to csv
-      with open(config.results_path, 'a') as f_object:
-        writer_object = writer(f_object)
-        writer_object.writerow(row.values())
-        f_object.close()
+      if not config.compute_canada:
+        with open(config.results_path, 'a') as f_object:
+          writer_object = writer(f_object)
+          writer_object.writerow(row.values())
+          f_object.close()
+      else:
+        print(", ".join(map(str, row.values())))
 
     if curr_epsilon >= experiment_vars["epsilon"]:
       break
@@ -261,10 +269,13 @@ def run_our_experiment(config, experiment_vars):
       row["train_acc"] = train_acc
       row["test_acc"] = test_acc
       # write data to csv
-      with open(config.results_path, 'a') as f_object:
-        writer_object = writer(f_object)
-        writer_object.writerow(row.values())
-        f_object.close()
+      if not config.compute_canada:
+        with open(config.results_path, 'a') as f_object:
+          writer_object = writer(f_object)
+          writer_object.writerow(row.values())
+          f_object.close()
+      else:
+        print(", ".join(map(str, row.values())))
 
     if curr_epsilon >= experiment_vars["epsilon"]:
       break
@@ -353,17 +364,21 @@ if __name__ == '__main__':
   parser.add_argument("--device", help="which device to use", default="cuda", choices=["cpu", "cuda"], type=str)
   parser.add_argument("--results_path", help="path to results file", default="./data/results.csv", type=str)
   parser.add_argument("--wordy", help="log everything", action="store_true")
+  parser.add_argument("--compute_canada", help="running on compute canada (so instead of use csv, print everything)", action="store_true")
   parser.add_argument("--max_degree", help="the maximum number of neighbours to include when testing model", default=-1, type=int)
   parser.add_argument("--test_stepsize", help="the number of steps between tests/logs", default=100, type=int)
   parser.add_argument("--train_batches", help="the number of batches used to compute training average accuracy", default=30, type=int)
 
   config = parser.parse_args()
 
-  if not os.path.isfile(config.results_path):
-    with open(config.results_path, 'w') as f_object:
-        writer_object = writer(f_object)
-        writer_object.writerow(header)
-        f_object.close()
+  if not config.compute_canada:
+    if not os.path.isfile(config.results_path):
+      with open(config.results_path, 'w') as f_object:
+          writer_object = writer(f_object)
+          writer_object.writerow(header)
+          f_object.close()
+  else:
+    print(", ".join(map(str, header)))
 
   experiment_vars = {}
   config_dict = vars(config)

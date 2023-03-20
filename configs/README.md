@@ -42,7 +42,8 @@ Valid JSON fields include:
  - ```"combine"``` accepts a list of configurations (JSON objects) from a which a grid of all possible combinations will be composed
  - ```"device"``` accepts either the string ```"cuda"``` or ```"cpu"```
  - ```"results_path"``` accepts a string which will be where results from experiments will be stored
- - ```"wordy"``` accepts ```True``` (or ```False```) but by default, it will be ```False```
+ - ```"wordy"``` accepts ```true``` (or ```false```) but by default, it will be ```false```
+ - ```"compute_canada"``` accepts ```true``` (or ```false```) but by default, it will be ```false```
  - ```"max_degree"``` is the maximum number of neighbours to include when testing the model (int)
  - ```"test_stepsize"``` is the number of steps between tests/logs (int)
  - ```"train_batches"``` is the number of batches to use when computing the training average accuracy (int)
@@ -55,7 +56,7 @@ Valid JSON fields include:
 
 To generate the runner bash script, feed the JSON to ```make_runner.py```, run the command:
 
-```$ python make_runner.py --in_path <path-to-json> --out_path "./run.sh" --results_path "./data/results.csv"```
+```$ python make_runner.py <path-to-json> --out_path "./run.sh" --results_path "./data/results.csv"```
 
 Please note that the ```out_path``` filepath is with respect to ```make_runner.py``` and the ```results_path``` filepath is with respect to ```main.py```. Now you can run the bash script ```run.sh``` to do your experiments!
 
