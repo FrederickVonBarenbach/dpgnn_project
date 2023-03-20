@@ -23,10 +23,7 @@ enums = {
     "dataset": ["ogb_mag", "reddit"]
 }
 def config_to_command(config, json_obj):
-    if "compute_canada" in json_obj and json_obj["compute_canada"] == True:
-        command = "bash cc_executer.sh"
-    else:
-        command = "python main.py"
+    command = "python main.py"
     # experiment settings
     for key, value in config.items():
         command += " --" + key + " "

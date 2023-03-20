@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --gres=gpu:1       # Request GPU "generic resources"
-#SBATCH --cpus-per-task=3  # Refer to cluster's documentation for the right CPU/GPU ratio
-#SBATCH --mem=32000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
-#SBATCH --time=0-00:10     # DD-HH:MM:SS
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=5       # Request GPU
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=15      # Refer to cluster's documentation for the right CPU/GPU ratio
+#SBATCH --mem=0                 # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
+#SBATCH --time=0-05:00          # DD-HH:MM:SS
 #SBATCH --account=def-mlecuyer
-#SBATCH --mail-user=f.shpilevskiy@gmail.com
-#SBATCH --mail-type=ALL
 
 module load python/3.7 cuda cudnn
 
@@ -22,4 +22,5 @@ pip install --no-index -r requirements.txt
 # tar xf ~/projects/def-xxxx/data.tar -C $SLURM_TMPDIR/data
 
 # Start training
-python main.py $@
+cat runner.input | parallel -j5 'CUDA_VISIBLE_DEVICES=$(({%} - 1)) python {} &> {#}.out'
+# python main.py $@
