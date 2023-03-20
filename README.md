@@ -9,7 +9,13 @@ python -m venv .venv && source .venv/bin/activate
 python setup.py
 ```
 
-In the ```config.py``` file in the ```configs``` folder, you can change the base hyperparameters. Then, you can define your experiments by identifying the new hyperparameters as a list.
+If you perfer to use ```cpu```, you can use
+
+```
+python setup.py --device cpu
+```
+
+In the ```configs``` folder, you can change the base hyperparameters of your experiments by creating a JSON file and executing ```make_runner.py```. Refer to the ```README.md``` there for more information.
 
 Now you can run your experiments with
 

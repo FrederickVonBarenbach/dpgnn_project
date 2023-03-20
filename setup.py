@@ -1,4 +1,10 @@
+import argparse
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--device", help="cuda or cpu", default="cuda", type=str)
+    args = parser.parse_args()
+
     # Install torch, matplotlib, numpy
     import os
     os.system('pip install torch torchvision')
@@ -12,7 +18,7 @@ if __name__ == '__main__':
     os.environ['TORCH'] = torch.__version__
     os.system("echo Torch version ${TORCH}")
 
-    if torch.cuda.is_available():
+    if args.device == "cuda":
         #NVIDIA GPU version
         os.system('pip uninstall torch-scatter torch-sparse torch-geometric torch-cluster  --y')
         os.system('pip install torch-scatter -f https://data.pyg.org/whl/torch-${TORCH}.html')
