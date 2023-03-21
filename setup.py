@@ -31,3 +31,6 @@ if __name__ == '__main__':
         os.system('pip install -q git+https://github.com/pyg-team/pytorch_geometric.git')
     os.system('pip uninstall pyvacy  --y')
     os.system('pip install pyvacy')
+
+    os.system('pip install wandb')
+    os.system('wandb login')

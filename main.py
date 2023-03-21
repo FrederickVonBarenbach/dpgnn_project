@@ -13,16 +13,14 @@ from pyvacy import optim, analysis
 
 
 def run_experiment(experiment_vars, config):
-  if not config.compute_canada:
-    print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
+  print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
   line = "Experiment : ["
   # apply experiment conditions
   for key in experiment_vars:
     line += key + "=" + str(experiment_vars[key]) + ", "
   line = line[:-2]
   line += "]"
-  if not config.compute_canada:
-    print(line)
+  print(line)
 
   # run experiment
   # TODO: make it so that it dynamically returns the necessary metric
@@ -68,6 +66,11 @@ def run_non_private_experiment(config, experiment_vars):
                                input_nodes=dataset.test_mask,
                                shuffle=True)
 
+  # setup wandb
+  if config.compute_canada:
+    import wandb
+    wandb.init(project="dp-gnn", config=row)
+
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
   loss_fn = nn.CrossEntropyLoss()
@@ -101,7 +104,7 @@ def run_non_private_experiment(config, experiment_vars):
           writer_object.writerow(row.values())
           f_object.close()
       else:
-        print(", ".join(map(str, row.values())))
+        wandb.log({"train_acc": row["train_acc"], "test_acc": row["test_acc"], "step": row["step"], "epsilon": row["epsilon"]})
 
     if t >= max_iters:
       break
@@ -157,6 +160,11 @@ def run_original_experiment(config, experiment_vars):
   row["alpha"] = alpha
   row["gamma"] = gamma
 
+  # setup wandb
+  if config.compute_canada:
+    import wandb
+    wandb.init(project="dp-gnn", config=row)
+
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
   loss_fn = nn.CrossEntropyLoss()
@@ -189,7 +197,7 @@ def run_original_experiment(config, experiment_vars):
           writer_object.writerow(row.values())
           f_object.close()
       else:
-        print(", ".join(map(str, row.values())))
+        wandb.log({"train_acc": row["train_acc"], "test_acc": row["test_acc"], "step": row["step"], "epsilon": row["epsilon"]})
 
     if curr_epsilon >= experiment_vars["epsilon"]:
       break
@@ -237,6 +245,11 @@ def run_our_experiment(config, experiment_vars):
   row["alpha"] = alpha
   row["gamma"] = gamma
 
+  # setup wandb
+  if config.compute_canada:
+    import wandb
+    wandb.init(project="dp-gnn", config=row)
+
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
   loss_fn = nn.CrossEntropyLoss()
@@ -275,7 +288,7 @@ def run_our_experiment(config, experiment_vars):
           writer_object.writerow(row.values())
           f_object.close()
       else:
-        print(", ".join(map(str, row.values())))
+        wandb.log({"train_acc": row["train_acc"], "test_acc": row["test_acc"], "step": row["step"], "epsilon": row["epsilon"]})
 
     if curr_epsilon >= experiment_vars["epsilon"]:
       break
@@ -371,14 +384,11 @@ if __name__ == '__main__':
 
   config = parser.parse_args()
 
-  if not config.compute_canada:
-    if not os.path.isfile(config.results_path):
-      with open(config.results_path, 'w') as f_object:
-          writer_object = writer(f_object)
-          writer_object.writerow(header)
-          f_object.close()
-  else:
-    print(", ".join(map(str, header)))
+  if not os.path.isfile(config.results_path) and not config.compute_canada:
+    with open(config.results_path, 'w') as f_object:
+        writer_object = writer(f_object)
+        writer_object.writerow(header)
+        f_object.close()
 
   experiment_vars = {}
   config_dict = vars(config)
