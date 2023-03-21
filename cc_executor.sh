@@ -28,5 +28,5 @@ export WANDB_START_METHOD="thread"
 # Start training
 echo "Executing on lines $1 to $2"
 # check if this exists even $SLURM_GPUS_PER_NODE TODO!!!
-awk 'NR >= $1 && NR <= $2' runner.input | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'CUDA_VISIBLE_DEVICES=$(({%} - 1)) python {} &> results/{#}.out'
+awk 'NR >= $1 && NR <= $2' $3 | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'CUDA_VISIBLE_DEVICES=$(({%} - 1)) python {} &> results/{#}.out'
 # python main.py $@

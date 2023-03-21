@@ -27,4 +27,4 @@ python main.py
 
 <br />
 
-To run a batch on Compute Canada, run ```cc_executor.sh <start> <end>``` where start and end are the experiments you want to run from runner.input (which will be generated automatically when you run ```make_runner.py``` with the ```compute_canada``` flag).
+To run a batch on Compute Canada, run ```cc_executor.sh <start> <end> <command_file>``` where ```start``` and ```end``` are the lines of the experiments you want to run from ```command_file``` (which will be generated automatically when you run ```make_runner.py``` with the ```compute_canada``` flag).
