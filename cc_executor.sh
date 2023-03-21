@@ -1,7 +1,6 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=5       # Request GPU
-#SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15      # Refer to cluster's documentation for the right CPU/GPU ratio
 #SBATCH --mem=0                 # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
 #SBATCH --time=0-18:00          # DD-HH:MM:SS
