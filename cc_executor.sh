@@ -17,6 +17,7 @@ pip install --no-index -r requirements.txt
 pip install --no-index wandb
 
 wandb login 23d9c9f377d31e538d5634ad0280ad712f293a6e
+export WANDB_START_METHOD="thread"
 
 # You could also create your environment here, on the local storage ($SLURM_TMPDIR), for better performance. See our docs on virtual environments.
 
@@ -25,5 +26,7 @@ wandb login 23d9c9f377d31e538d5634ad0280ad712f293a6e
 # tar xf ~/projects/def-xxxx/data.tar -C $SLURM_TMPDIR/data
 
 # Start training
-cat runner.input | parallel -j5 'CUDA_VISIBLE_DEVICES=$(({%} - 1)) python {} &> results/{#}.out'
+echo "Executing on lines $1 to $2"
+# check if this exists even $SLURM_GPUS_PER_NODE TODO!!!
+awk 'NR >= $1 && NR <= $2' runner.input | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'CUDA_VISIBLE_DEVICES=$(({%} - 1)) python {} &> results/{#}.out'
 # python main.py $@
