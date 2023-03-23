@@ -33,7 +33,7 @@ def config_to_command(config, json_obj, id):
             command += " ".join(value)
         else:
             command += str(value)
-    command += "--id " + id
+    command += "--id " + str(id)
     # environment settings
     for key, value in json_obj.items():
         if key == "wordy" or key == "compute_canada":
