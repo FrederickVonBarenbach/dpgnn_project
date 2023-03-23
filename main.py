@@ -13,7 +13,7 @@ from pyvacy import optim, analysis
 
 def run_experiment(experiment_vars, config):
   print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
-  line = "Experiment " + experiment_vars["id"] + " : ["
+  line = "Experiment " + str(experiment_vars["id"]) + " : ["
   # apply experiment conditions
   for key in experiment_vars:
     line += key + "=" + str(experiment_vars[key]) + ", "
