@@ -1,6 +1,5 @@
 import os
 import torch
-import pandas as pd
 import gc
 import argparse
 from csv import writer

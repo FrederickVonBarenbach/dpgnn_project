@@ -6,14 +6,13 @@
 #SBATCH --time=0-18:00          # DD-HH:MM:SS
 #SBATCH --account=def-mlecuyer
 
-module load python/3.7 cuda cudnn
+module load python/3.9 cuda cudnn
 
 # Prepare virtualenv
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip install --no-index --upgrade pip
 pip install --no-index -r requirements.txt
-pip install --no-index wandb
 
 wandb login 23d9c9f377d31e538d5634ad0280ad712f293a6e
 export WANDB_START_METHOD="thread"
@@ -26,6 +25,11 @@ export WANDB_START_METHOD="thread"
 
 # Start training
 echo "Executing on lines $1 to $2"
-# check if this exists even $SLURM_GPUS_PER_NODE TODO!!!
-awk 'NR >= $1 && NR <= $2' $3 | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'CUDA_VISIBLE_DEVICES=$(({%} - 1)) python {} &> results/{#}.out'
-# python main.py $@
+sed -n "$1,$2p" $3 > "tmp$SLURM_JOB_ID.input"
+cat "tmp$SLURM_JOB_ID.input" | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'eval CUDA_VISIBLE_DEVICES=$(({%} - 1)) {} &> results/{#}.out'
+rm "tmp$SLURM_JOB_ID.input"
+
+# salloc --nodes=1 --gpus-per-node=2 --cpus-per-task=6 --mem=8000M --time=0-00:30 --account=def-mlecuyer
+# sed -n "100,101p" runner.input > "tmp$SLURM_JOB_ID.input"
+# cat "tmp$SLURM_JOB_ID.input" | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'eval CUDA_VISIBLE_DEVICES=$(({%} - 1)) {} &> results/{#}.out'
+# rm "tmp$SLURM_JOB_ID.input"
