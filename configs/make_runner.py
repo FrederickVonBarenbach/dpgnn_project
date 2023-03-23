@@ -22,7 +22,7 @@ enums = {
     "optimizer": ["DPSGD", "DPAdam", "DPAdamFixed", "Adam"],
     "dataset": ["ogb_mag", "reddit"]
 }
-def config_to_command(config, json_obj):
+def config_to_command(config, json_obj, id):
     command = "python main.py"
     # experiment settings
     for key, value in config.items():
@@ -33,6 +33,7 @@ def config_to_command(config, json_obj):
             command += " ".join(value)
         else:
             command += str(value)
+    command += "--id " + id
     # environment settings
     for key, value in json_obj.items():
         if key == "wordy" or key == "compute_canada":
@@ -62,7 +63,7 @@ if __name__ == '__main__':
             config = {}
             for key, value in grid.items():
                 config[key] = value[i]
-            command = config_to_command(config, json_obj)
+            command = config_to_command(config, json_obj, i+1)
             # write command
             f_object.write(command + "\n")
         f_object.close()

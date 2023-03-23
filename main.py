@@ -13,7 +13,7 @@ from pyvacy import optim, analysis
 
 def run_experiment(experiment_vars, config):
   print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
-  line = "Experiment : ["
+  line = "Experiment " + experiment_vars["id"] + " : ["
   # apply experiment conditions
   for key in experiment_vars:
     line += key + "=" + str(experiment_vars[key]) + ", "
@@ -354,7 +354,8 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   # loggable variables
   header = ["batch_size", "epsilon", "delta", "r_hop", "degree_bound", "clipping_threshold", "clipping_multiplier", "clipping_percentile", "noise_multiplier", "lr", \
-            "weight_decay", "encoder_dimensions", "decoder_dimensions", "dropout", "optimizer", "dataset", "setup", "sigma", "alpha", "gamma", "step", "train_acc", "test_acc"]
+            "weight_decay", "encoder_dimensions", "decoder_dimensions", "dropout", "optimizer", "dataset", "setup", "sigma", "alpha", "gamma", "step", "train_acc", \
+            "test_acc", "id"]
   parser.add_argument("--batch_size", help="size of batch", default=10000, type=int)
   parser.add_argument("--epsilon", help="privacy budget (for DP)", default=10, type=float)
   parser.add_argument("--delta", help="leakage probability (for DP)", default=5e-8, type=float)
@@ -372,6 +373,7 @@ if __name__ == '__main__':
   parser.add_argument("--optimizer", help="optimizer to be used", default="DPAdam", choices=["DPSGD", "DPAdam", "DPAdamFixed", "Adam"], type=str)
   parser.add_argument("--dataset", help="dataset to be used", default="ogb_mag", choices=["ogb_mag", "reddit"], type=str)
   parser.add_argument("--setup", help="setup to be used", default="ours", choices=["original", "ours", "non-dp"], type=str)
+  parser.add_argument("--id", help="id of experiment", default=0, type=int)
   # environment variables
   parser.add_argument("--device", help="which device to use", default="cuda", choices=["cpu", "cuda"], type=str)
   parser.add_argument("--results_path", help="path to results file", default="./data/results.csv", type=str)
