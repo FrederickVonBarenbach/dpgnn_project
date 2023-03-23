@@ -68,7 +68,7 @@ def run_non_private_experiment(config, experiment_vars):
   # setup wandb
   if config.compute_canada:
     import wandb
-    wandb.init(project="dp-gnn", config=row, name=str("Experiment " + row["id"]))
+    wandb.init(project="dp-gnn", config=row, name="Experiment " + str(row["id"]))
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
@@ -162,7 +162,7 @@ def run_original_experiment(config, experiment_vars):
   # setup wandb
   if config.compute_canada:
     import wandb
-    wandb.init(project="dp-gnn", config=row, name=str("Experiment " + row["id"]))
+    wandb.init(project="dp-gnn", config=row, name="Experiment " + str(row["id"]))
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
@@ -247,7 +247,7 @@ def run_our_experiment(config, experiment_vars):
   # setup wandb
   if config.compute_canada:
     import wandb
-    wandb.init(project="dp-gnn", config=row, name=str("Experiment " + row["id"]))
+    wandb.init(project="dp-gnn", config=row, name="Experiment " + str(row["id"]))
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
