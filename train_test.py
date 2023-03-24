@@ -14,9 +14,6 @@ def train(batch, model, loss_fn, optimizer, device):
   optimizer.zero_grad()
   loss.backward()
   optimizer.step()
-  # empty gpu
-  torch.cuda.empty_cache()
-  gc.collect()
 
 
 # test
