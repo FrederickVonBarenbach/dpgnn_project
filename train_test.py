@@ -1,4 +1,5 @@
 import torch
+import gc
 from torch_geometric.data import Data
 
 # train
@@ -13,6 +14,10 @@ def train(batch, model, loss_fn, optimizer, device):
   optimizer.zero_grad()
   loss.backward()
   optimizer.step()
+  # empty gpu
+  torch.cuda.empty_cache()
+  gc.collect()
+
 
 # test
 def batch_test(batch, split, model, loss_fn, device, wordy=True):
@@ -28,7 +33,11 @@ def batch_test(batch, split, model, loss_fn, device, wordy=True):
   correct /= size
   if wordy:
     print(f"{split.title()} Error: \n Accuracy: {(100*correct):>0.1f}%, Loss: {test_loss:>8f}")
+  # empty gpu
+  torch.cuda.empty_cache()
+  gc.collect()
   return test_loss, correct
+
 
 # test
 def test(loader, split, model, loss_fn, device, wordy=True):
@@ -44,6 +53,7 @@ def test(loader, split, model, loss_fn, device, wordy=True):
   if wordy:
     print(f"{split.title()} Error: \n Avg Accuracy: {(100*correct):>0.1f}%, Avg Loss: {test_loss:>8f}")
   return test_loss, correct
+
 
 # test average over n batches
 def n_batch_test(loader, n, split, model, loss_fn, device, wordy=True):
