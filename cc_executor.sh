@@ -28,7 +28,7 @@ sed -n "$1,$2p" $3 > "tmp$SLURM_JOB_ID.input"
 . "tmp$SLURM_JOB_ID.input"
 rm "tmp$SLURM_JOB_ID.input"
 
-# salloc --nodes=1 --gpus-per-node=2 --cpus-per-task=6 --mem=8000M --time=0-00:30 --account=def-mlecuyer
+# salloc --nodes=1 --gpus-per-node=1 --cpus-per-task=3 --mem=32000M --time=0-00:30 --account=def-mlecuyer
 # sed -n "100,101p" runner.input > "tmp$SLURM_JOB_ID.input"
 # cat "tmp$SLURM_JOB_ID.input" | parallel -j $SLURM_GPUS_PER_NODE --roundrobin 'eval CUDA_VISIBLE_DEVICES=$(({%} - 1)) {} &> results/{#}.out'
 # rm "tmp$SLURM_JOB_ID.input"
