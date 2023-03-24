@@ -56,12 +56,12 @@ def run_non_private_experiment(config, experiment_vars):
   # setup loaders
   train_loader = NeighborLoader(dataset, 
                                 num_neighbors=[config.max_degree] * experiment_vars["r_hop"],
-                                batch_size=experiment_vars["batch_size"],
+                                batch_size=config.test_batch_size,
                                 input_nodes=dataset.train_mask,
                                 shuffle=True)
   test_loader = NeighborLoader(dataset,
                                num_neighbors=[config.max_degree] * experiment_vars["r_hop"],
-                               batch_size=experiment_vars["batch_size"],
+                               batch_size=config.test_batch_size,
                                input_nodes=dataset.test_mask,
                                shuffle=True)
 
@@ -144,13 +144,13 @@ def run_original_experiment(config, experiment_vars):
 
   test_loader = NeighborLoader(dataset,
                                num_neighbors=[config.max_degree] * experiment_vars["r_hop"],
-                               batch_size=experiment_vars["batch_size"],
+                               batch_size=config.test_batch_size,
                                input_nodes=dataset.test_mask,
                                shuffle=True)
 
   non_priv_train_loader = NeighborLoader(dataset,
                                          num_neighbors=[config.max_degree] * experiment_vars["r_hop"],
-                                         batch_size=experiment_vars["batch_size"],
+                                         batch_size=config.test_batch_size,
                                          input_nodes=dataset.train_mask,
                                          shuffle=True)
 
@@ -230,12 +230,12 @@ def run_our_experiment(config, experiment_vars):
   # setup loaders
   test_loader = NeighborLoader(dataset,
                                num_neighbors=[config.max_degree] * experiment_vars["r_hop"],
-                               batch_size=experiment_vars["batch_size"],
+                               batch_size=config.test_batch_size,
                                input_nodes=dataset.test_mask,
                                shuffle=True)
   non_priv_train_loader = NeighborLoader(dataset,
                                          num_neighbors=[config.max_degree] * experiment_vars["r_hop"],
-                                         batch_size=experiment_vars["batch_size"], 
+                                         batch_size=config.test_batch_size, 
                                          input_nodes=dataset.train_mask,
                                          shuffle=True)
 
@@ -379,9 +379,10 @@ if __name__ == '__main__':
   parser.add_argument("--results_path", help="path to results file", default="./data/results.csv", type=str)
   parser.add_argument("--wordy", help="log everything", action="store_true")
   parser.add_argument("--compute_canada", help="running on compute canada (so instead of use csv, print everything)", action="store_true")
-  parser.add_argument("--max_degree", help="the maximum number of neighbours to include when testing model", default=-1, type=int)
+  parser.add_argument("--max_degree", help="the maximum number of neighbours to include when testing model", default=50, type=int)
+  parser.add_argument("--test_batch_size", help="the batch size used by the (non-dp) test set", default=1000, type=int)
   parser.add_argument("--test_stepsize", help="the number of steps between tests/logs", default=100, type=int)
-  parser.add_argument("--train_batches", help="the number of batches used to compute training average accuracy", default=30, type=int)
+  parser.add_argument("--train_batches", help="the number of batches used to compute training average accuracy", default=50, type=int)
 
   config = parser.parse_args()
 

@@ -47,6 +47,8 @@ Valid JSON fields include:
  - ```"max_degree"``` is the maximum number of neighbours to include when testing the model (int)
  - ```"test_stepsize"``` is the number of steps between tests/logs (int)
  - ```"train_batches"``` is the number of batches to use when computing the training average accuracy (int)
+ -   ```"test_batch_size"``` is the batch size used by the (non-dp) test set
+
 
 <br />
 
