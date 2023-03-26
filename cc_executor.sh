@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1       # Request GPU
-#SBATCH --cpus-per-task=4       # Refer to cluster's documentation for the right CPU/GPU ratio
+#SBATCH --cpus-per-task=6       # Refer to cluster's documentation for the right CPU/GPU ratio
 #SBATCH --mem=32000M            # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
-#SBATCH --time=0-03:00          # DD-HH:MM:SS
+#SBATCH --time=0-18:00          # DD-HH:MM:SS
 #SBATCH --account=def-mlecuyer
 
 module load python/3.9 cuda cudnn

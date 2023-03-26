@@ -299,7 +299,7 @@ def run_our_experiment(config, experiment_vars):
 
 def search_for_alpha(n, sigma, clipping_threshold, experiment_vars):
   alpha, gamma = 1.01, np.inf
-  for alpha_ in np.linspace(1.01, 40, num=200):
+  for alpha_ in np.linspace(1.01, 60, num=200):
     gamma_ = get_gamma(n, experiment_vars["batch_size"], clipping_threshold, sigma, experiment_vars["r_hop"], 
                       experiment_vars["degree_bound"], alpha_, experiment_vars["delta"])
 
