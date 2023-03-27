@@ -23,10 +23,13 @@ export WANDB_START_METHOD="thread"
 # tar xf ~/projects/def-xxxx/data.tar -C $SLURM_TMPDIR/data
 
 # Start training
-echo "Executing lines $1 up to $2"
-sed -n "$1,$2p" $3 > "tmp$SLURM_JOB_ID.input"
-. "tmp$SLURM_JOB_ID.input"
-rm "tmp$SLURM_JOB_ID.input"
+echo "Starting task $SLURM_ARRAY_TASK_ID"
+LINE=$(sed -n "${SLURM_ARRAY_TASK_ID}p" $1)
+IFS=' ' read -r -a ARGS <<< "$LINE"
+echo "Executing lines ${ARGS[0]} up to ${ARGS[1]}"
+sed -n "${ARGS[0]},${ARGS[1]}p" $2 > "tmp${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.input"
+. "tmp${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.input"
+rm "tmp${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}.input"
 
 # salloc --nodes=1 --gpus-per-node=1 --cpus-per-task=3 --mem=32000M --time=0-00:30 --account=def-mlecuyer
 # sed -n "100,101p" runner.input > "tmp$SLURM_JOB_ID.input"
