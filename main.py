@@ -66,9 +66,9 @@ def run_non_private_experiment(config, experiment_vars):
                                shuffle=True)
 
   # setup wandb
-  if config.compute_canada:
+  if config.wandb_project is not None:
     import wandb
-    wandb.init(project="dp-gnn", config=row, name="Experiment " + str(row["id"]))
+    wandb.init(project=, config=row, name="Experiment " + str(row["id"]))
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
@@ -97,7 +97,7 @@ def run_non_private_experiment(config, experiment_vars):
       row["train_acc"] = train_acc
       row["test_acc"] = test_acc
       # write data to csv
-      if not config.compute_canada:
+      if config.wandb_project is None:
         with open(config.results_path, 'a') as f_object:
           writer_object = writer(f_object)
           writer_object.writerow(row.values())
@@ -160,7 +160,7 @@ def run_original_experiment(config, experiment_vars):
   row["gamma"] = gamma
 
   # setup wandb
-  if config.compute_canada:
+  if config.wandb_project is not None:
     import wandb
     wandb.init(project="dp-gnn", config=row, name="Experiment " + str(row["id"]))
 
@@ -190,7 +190,7 @@ def run_original_experiment(config, experiment_vars):
       row["train_acc"] = train_acc
       row["test_acc"] = test_acc
       # write data to csv
-      if not config.compute_canada:
+      if config.wandb_project is None:
         with open(config.results_path, 'a') as f_object:
           writer_object = writer(f_object)
           writer_object.writerow(row.values())
@@ -245,7 +245,7 @@ def run_our_experiment(config, experiment_vars):
   row["gamma"] = gamma
 
   # setup wandb
-  if config.compute_canada:
+  if config.wandb_project is not None:
     import wandb
     wandb.init(project="dp-gnn", config=row, name="Experiment " + str(row["id"]))
 
@@ -281,7 +281,7 @@ def run_our_experiment(config, experiment_vars):
       row["train_acc"] = train_acc
       row["test_acc"] = test_acc
       # write data to csv
-      if not config.compute_canada:
+      if config.wandb_project is None:
         with open(config.results_path, 'a') as f_object:
           writer_object = writer(f_object)
           writer_object.writerow(row.values())
@@ -331,6 +331,7 @@ def get_clipping_threshold(dataset, experiment_vars):
 def get_sigma(experiment_vars, clipping_threshold):
   return experiment_vars["noise_multiplier"] * 2 * clipping_threshold * get_N(experiment_vars["degree_bound"], experiment_vars["r_hop"])
 
+# 1 - beta_1 = sqrt(1 - beta_2)
 
 def get_optimizer(experiment_vars, clipping_threshold, sigma, model):
   optimizer = None
@@ -339,12 +340,13 @@ def get_optimizer(experiment_vars, clipping_threshold, sigma, model):
                             params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
   elif experiment_vars["optimizer"] == "DPAdam":
     optimizer = optim.DPAdam(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, batch_size=experiment_vars["batch_size"],
-                             params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
+                             params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"],
+                             beta1=experiment["beta1"], beta2=experiment["beta2"], eps=experiment["eps"])
   elif experiment_vars["optimizer"] == "DPAdamFixed":
     from dp_nlp.adam_corr import AdamCorr
-    # TODO: What is eps_root?
     optimizer = AdamCorr(dp_l2_norm_clip=clipping_threshold, dp_noise_multiplier=sigma, dp_batch_size=experiment_vars["batch_size"],
-                         eps_root=1e-8, params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
+                         params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"],
+                         beta1=experiment["beta1"], beta2=experiment["beta2"], eps_root=experiment["eps"])
   elif experiment_vars["optimizer"] == "Adam":
     optimizer = torch.optim.Adam(params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
   return optimizer
@@ -354,7 +356,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   # loggable variables
   header = ["batch_size", "epsilon", "delta", "r_hop", "degree_bound", "clipping_threshold", "clipping_multiplier", "clipping_percentile", "noise_multiplier", "lr", \
-            "weight_decay", "encoder_dimensions", "decoder_dimensions", "dropout", "optimizer", "dataset", "setup", "sigma", "alpha", "gamma", "step", "train_acc", \
+            "weight_decay", "beta1", "beta2", "eps", "encoder_dimensions", "decoder_dimensions", "dropout", "optimizer", "dataset", "setup", "sigma", "alpha", "gamma", "step", "train_acc", \
             "test_acc", "id"]
   parser.add_argument("--batch_size", help="size of batch", default=10000, type=int)
   parser.add_argument("--epsilon", help="privacy budget (for DP)", default=10, type=float)
@@ -373,12 +375,14 @@ if __name__ == '__main__':
   parser.add_argument("--optimizer", help="optimizer to be used", default="DPAdam", choices=["DPSGD", "DPAdam", "DPAdamFixed", "Adam"], type=str)
   parser.add_argument("--dataset", help="dataset to be used", default="ogb_mag", choices=["ogb_mag", "reddit"], type=str)
   parser.add_argument("--setup", help="setup to be used", default="ours", choices=["original", "ours", "non-dp"], type=str)
+  parser.add_argument("--beta1", help="beta1 used by Adam", default=0.9, type=float)
+  parser.add_argument("--eps", help="eps used by Adam", default=1e-8, type=float)
   parser.add_argument("--id", help="id of experiment", default=0, type=int)
   # environment variables
   parser.add_argument("--device", help="which device to use", default="cuda", choices=["cpu", "cuda"], type=str)
   parser.add_argument("--results_path", help="path to results file", default="./data/results.csv", type=str)
   parser.add_argument("--wordy", help="log everything", action="store_true")
-  parser.add_argument("--compute_canada", help="running on compute canada (so instead of use csv, print everything)", action="store_true")
+  parser.add_argument("--wandb_project", help="save results to wandb in the specified project", type=str)
   parser.add_argument("--max_degree", help="the maximum number of neighbours to include when testing model", default=50, type=int)
   parser.add_argument("--test_batch_size", help="the batch size used by the (non-dp) test set", default=1000, type=int)
   parser.add_argument("--test_stepsize", help="the number of steps between tests/logs", default=100, type=int)
@@ -386,7 +390,7 @@ if __name__ == '__main__':
 
   config = parser.parse_args()
 
-  if not os.path.isfile(config.results_path) and not config.compute_canada:
+  if not os.path.isfile(config.results_path) and config.wandb_project is None:
     with open(config.results_path, 'w') as f_object:
         writer_object = writer(f_object)
         writer_object.writerow(header)
