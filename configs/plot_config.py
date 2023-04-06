@@ -1,17 +1,15 @@
-from configs.config import make_grid, possible_setups, possible_datasets, possible_optimizer
-
 constants = {
     # "device": "cuda",
     # "delta": 0.00000005,
-    "noise_multiplier": 2,
+    # "noise_multiplier": 2,
     # "clipping_multiplier": 1,
     # "weight_decay": 1e-5,
-    # "setup": "original",
+    "setup": "original",
     # "encoder_dimensions": "[602, 256]",
     # "decoder_dimensions": "[256, 41]",
     # "dropout": 0.1,
     # "optimizer": "DPAdam"
-    "dataset": possible_datasets[0]
+    "dataset": "ogb_mag"
 }
 
 variables = {
@@ -27,23 +25,41 @@ variables = {
     #     "r_hop": [1, 2, 2],
     #     "degree_bound": [10, 5, 3]
     # },
-    # "columns": {
-    #     "setup": ["original", "ours"]
-    # },
-    # "best": ["lr", "noise_multiplier", "batch_size", "clipping_percentile", "clipping_multiplier"]
+
+    # "columns": {"lr": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]}
+
+    # "rows": {"lr": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]},
+    # "columns": {"noise_multiplier": [1.5, 2, 3, 4]},
+    # "best": []
+
+    # "rows": {"eps": [1e-9, 1e-8, 5e-8, 1e-7, 5e-7]},
+
+    "columns": {"lr": [0.0003, 0.0005, 0.0007, 0.003]},
+    "rows": {"beta1": [0.6, 0.7]},
+    "best": ["eps"]
+
+    # "columns": {"optimizer": ["DPAdam", "DPAdamFixed", "DPSGD"]},
+    # "best": ["eps"]
 }
 
-filepath = "./data/results.csv"
-storepath = "./figs/ogb_mag_training_graph"
+# filepath = "f-shpilevskiy/gnn_adam_corr"
+filepath = "data/f-shpilevskiy_gnn_adam_corr.zip"
+storepath = "./figs/line_opt2_lr_beta1"
 epsilon_bound = 10
+# using_wandb = True
+using_wandb = False
 
 # graph_type = "best_heatmap"
-# axes = ("degree_bound", "r_hop")
+# axes = ("lr", "beta1")
 # values = ["test_acc"]
-value_range = [0, 0.3]
+# value_range = [0.1, 0.32]
+
 graph_type = "line"
 axes = ("step", "acc")
 values = ["test_acc", "train_acc"]
-comparisons = {"setup": [possible_setups[0], possible_setups[1]]}
+comparisons = {"optimizer": ["DPAdam", "DPAdamFixed"]}
+value_range = [0, 0.32]
+
+# comparisons = {"optimizer": ["DPAdam", "DPAdamFixed", "DPSGD"]}
 # comparisons = make_grid({"setup": [possible_setups[0]]},
 #                         {"optimizer": [possible_optimizer[1], possible_optimizer[2]]})

@@ -56,7 +56,8 @@ Valid JSON fields include:
  - ```"max_degree"``` is the maximum number of neighbours to include when testing the model (int)
  - ```"test_stepsize"``` is the number of steps between tests/logs (int)
  - ```"train_batches"``` is the number of batches to use when computing the training average accuracy (int)
- -   ```"test_batch_size"``` is the batch size used by the (non-dp) test set
+ - ```"test_batch_size"``` is the batch size used by the (non-dp) test set
+ - ```"iter"``` is the number of iterations to do each experiment
 
 
 <br />
@@ -82,3 +83,4 @@ Please note that the ```out_path``` filepath is with respect to ```make_runner.p
 | ```setup```     | ```original``` | ```ours```   | ```non-dp```      |            |
 | ```optimizer``` | ```DPSGD```    | ```DPAdam``` | ```DPAdamFixed``` | ```Adam``` |
 | ```dataset```   | ```ogb_mag```  | ```reddit``` |                   |            |
+| ```activation```| ```relu```     | ```tanh```   |                   |            |
