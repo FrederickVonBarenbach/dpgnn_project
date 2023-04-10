@@ -68,9 +68,9 @@ Valid JSON fields include:
 
 To generate the runner bash script, feed the JSON to ```make_runner.py```, run the command:
 
-```$ python make_runner.py <path-to-json> --out_path "./run.sh" --results_path "./data/results.csv"```
+```$ python make_runner.py <path-to-json> --out_path "./run.sh" --cc "./cc_runner.sh"```
 
-Please note that the ```out_path``` filepath is with respect to ```make_runner.py``` and the ```results_path``` filepath is with respect to ```main.py```. Now you can run the bash script ```run.sh``` to do your experiments!
+Please note that the ```out_path``` filepath is with respect to ```make_runner.py``` and the ```results_path``` filepath is with respect to ```main.py```. Now you can run the bash script ```run.sh``` to do your experiments! If you use the ```--cc``` flag, you can generate a set of commands that you can use to run CC experiments. If you use the ```--recompute``` flag, you can instead specify the path to some runner (instead of the json) and then recompute the runtimes from that file into a new CC runner script.
 
 <br />
 <br />

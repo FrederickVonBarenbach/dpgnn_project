@@ -50,8 +50,6 @@ def run_non_private_experiment(config, experiment_vars):
 
   # prepare data
   dataset, num_classes = load_dataset(experiment_vars["dataset"])
-  if not hasattr(dataset, 'train_mask'):
-    train_test_split(dataset, 0.2)
 
   # setup loaders
   train_loader = NeighborLoader(dataset, 
@@ -124,11 +122,9 @@ def run_original_experiment(config, experiment_vars):
 
   # prepare data
   dataset, num_classes = load_dataset(experiment_vars["dataset"])
-  if not hasattr(dataset, 'train_mask'):
-    train_test_split(dataset, 0.2)
 
   # get clipping threshold by using clipping_percentile of the gradients
-  clipping_threshold = get_clipping_threshold(dataset, experiment_vars)
+  clipping_threshold = get_clipping_threshold(experiment_vars, dataset)
   row["clipping_threshold"] = clipping_threshold
 
   # get sigma according to the equation in section 6
@@ -156,7 +152,7 @@ def run_original_experiment(config, experiment_vars):
                                          shuffle=True)
 
   # search for alpha
-  alpha, gamma = search_for_alpha(dataset.train_mask.sum().item(), sigma, clipping_threshold, experiment_vars)
+  alpha, gamma = search_for_alpha(sigma, clipping_threshold, experiment_vars, dataset)
   row["alpha"] = alpha
   row["gamma"] = gamma
 
@@ -218,11 +214,9 @@ def run_our_experiment(config, experiment_vars):
 
   # prepare data
   dataset, num_classes = load_dataset(experiment_vars["dataset"])
-  if not hasattr(dataset, 'train_mask'):
-    train_test_split(dataset, 0.2)
 
   # get clipping threshold by using clipping_percentile of the gradients
-  clipping_threshold = get_clipping_threshold(dataset, experiment_vars)
+  clipping_threshold = get_clipping_threshold(experiment_vars, dataset)
   row["clipping_threshold"] = clipping_threshold
 
   # get sigma according to the equation in section 6
@@ -242,7 +236,7 @@ def run_our_experiment(config, experiment_vars):
                                          shuffle=True)
 
   # search for alpha
-  alpha, gamma = search_for_alpha(dataset.train_mask.sum().item(), sigma, clipping_threshold, experiment_vars)
+  alpha, gamma = search_for_alpha(sigma, clipping_threshold, experiment_vars, dataset)
   row["alpha"] = alpha
   row["gamma"] = gamma
 
@@ -301,45 +295,61 @@ def run_our_experiment(config, experiment_vars):
 
 
 def estimate(experiment_vars):
-  # prepare dataset
-  dataset, _ = load_dataset(experiment_vars["dataset"])
-  if not hasattr(dataset, 'train_mask'):
-    train_test_split(dataset, 0.2)
   # get clipping threshold
-  clipping_threshold = get_clipping_threshold(dataset, experiment_vars)
+  clipping_threshold = get_clipping_threshold(experiment_vars)
   # get sigma according to the equation in section 6
   sigma = get_sigma(experiment_vars, clipping_threshold)
   # search for alpha
-  alpha, gamma = search_for_alpha(dataset.train_mask.sum().item(), sigma, clipping_threshold, experiment_vars)
+  alpha, gamma = search_for_alpha(sigma, clipping_threshold, experiment_vars)
   # runtime estimate
-  if experiment_vars["r_hop"] == 1:
-    runtime = 5.9232 * np.power(gamma, -0.9679)
-  elif experiment_vars["r_hop"] == 2:
-    runtime = 35.0279 * np.power(gamma, -0.9168)
-  elif experiment_vars["r_hop"] == 3:
-    runtime = 58.6427 * np.power(gamma, -1.0870)
+  runtime = 0
+  if experiment_vars["setup"] == "original":
+    if experiment_vars["r_hop"] == 1:
+      runtime = 5.9232 * np.power(gamma, -0.9679)
+    elif experiment_vars["r_hop"] == 2:
+      runtime = 35.0279 * np.power(gamma, -0.9168)
+    elif experiment_vars["r_hop"] == 3:
+      runtime = 58.6427 * np.power(gamma, -1.0870)
+  elif experiment_vars["setup"] == "ours":
+    if experiment_vars["r_hop"] == 1:
+      runtime = 24.1708 * np.power(gamma, -0.9450)
+    elif experiment_vars["r_hop"] == 2:
+      runtime = 53.0164 * np.power(gamma, -0.9288)
+    elif experiment_vars["r_hop"] == 3:
+      runtime = 244.9826 * np.power(gamma, -0.8266)
   return alpha, gamma, sigma, runtime
 
 
-def search_for_alpha(n, sigma, clipping_threshold, experiment_vars):
+def search_for_alpha(sigma, clipping_threshold, experiment_vars, dataset=None):
   # if precomputed
   if "alpha" in experiment_vars and "gamma" in experiment_vars:
-    return experiment_vars["alpha"], experiment_vars["gamma"]
+    alpha = experiment_vars["alpha"]
+    gamma = experiment_vars["gamma"]
   # otherwise
-  alpha, gamma = 1.01, np.inf
-  for alpha_ in np.linspace(1.01, 60, num=200):
-    gamma_ = get_gamma(n, experiment_vars["batch_size"], clipping_threshold, sigma, experiment_vars["r_hop"], 
-                      experiment_vars["degree_bound"], alpha_, experiment_vars["delta"])
+  else:
+    # prepare dataset if not given
+    if dataset is None:
+      dataset, _ = load_dataset(experiment_vars["dataset"])
+    n = dataset.train_mask.sum().item()
+    # optimize for alpha, gamma
+    alpha, gamma = 1.01, np.inf
+    for alpha_ in np.linspace(1.01, 60, num=200):
+      gamma_ = get_gamma(n, experiment_vars["batch_size"], clipping_threshold, sigma, experiment_vars["r_hop"], 
+                        experiment_vars["degree_bound"], alpha_, experiment_vars["delta"])
 
-    if (get_epsilon(gamma_, 1, alpha_, experiment_vars["delta"]) < get_epsilon(gamma, 1, alpha, experiment_vars["delta"])):
-      alpha = alpha_
-      gamma = gamma_
+      if (get_epsilon(gamma_, 1, alpha_, experiment_vars["delta"]) < get_epsilon(gamma, 1, alpha, experiment_vars["delta"])):
+        alpha = alpha_
+        gamma = gamma_
   return alpha, gamma
 
 
 # if clipping threshold is set to zero at configuration, then use the percentile (adaptive choice)
-def get_clipping_threshold(dataset, experiment_vars):
+def get_clipping_threshold(experiment_vars, dataset=None):
   if "clipping_threshold" not in experiment_vars:
+    # load it if it is not given
+    if dataset is None:
+      dataset, _ = load_dataset(experiment_vars["dataset"])
+    # make model/loss_fn/optimizer
     model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], 
                 experiment_vars["activation"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
     loss_fn = nn.CrossEntropyLoss()
@@ -349,6 +359,7 @@ def get_clipping_threshold(dataset, experiment_vars):
                                 batch_size=experiment_vars["batch_size"],
                                 input_nodes=sampled_dataset.train_mask,
                                 shuffle=True)
+    # get clipping threshold as percentile of gradients
     clipping_threshold = experiment_vars["clipping_multiplier"] * get_gradient_percentile(model, loss_fn, dataloader, experiment_vars["clipping_percentile"])
     torch.cuda.empty_cache()
     gc.collect()

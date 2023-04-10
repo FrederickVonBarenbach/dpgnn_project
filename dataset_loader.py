@@ -12,8 +12,6 @@ def load_dataset(name):
                        y=dataset.y_dict['paper'],
                        train_mask = dataset.train_mask_dict['paper'],
                        test_mask = dataset.test_mask_dict['paper'])
-        # # add some transformations
-        # dataset = add_self_edges(dataset)
         dataset = make_undirected(dataset)
         # get number of classes
         num_classes = torch.unique(dataset['y']).size(dim=0)
@@ -21,9 +19,11 @@ def load_dataset(name):
         # load dataset to datasets
         from torch_geometric.datasets import Reddit
         dataset = Reddit(root='./datasets/reddit')[0]
-        # # add some transformations
-        # dataset = add_self_edges(dataset)
-        # dataset = make_undirected(dataset)
+        dataset = make_undirected(dataset)
         # get number of classes
         num_classes = torch.unique(dataset['y']).size(dim=0)
     return dataset, num_classes
+
+# # if there is no train_mask, do a 80/20 split
+# if not hasattr(dataset, 'train_mask'):
+#     train_test_split(dataset, 0.2)

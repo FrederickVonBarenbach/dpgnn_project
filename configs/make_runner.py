@@ -61,34 +61,28 @@ enums = {
 }
 def parse_args(config, id):
     command = ""
-    args = []
     for key, value in config.items():
         if value != "N/a":
-            arg = ""
+            command += " --" + key + " "
             if key in enums.keys() and isinstance(value, int):
-                arg += enums[key][value]
+                command += enums[key][value]
             elif key in ["encoder_dimensions", "decoder_dimensions"]:
-                arg += " ".join(str(item) for item in value)
+                command += " ".join(str(item) for item in value)
             else:
-                arg += str(value)
-            args.append("--" + key + "=" + arg)
-            command += " --" + key + " " + arg
+                command += str(value)
     command += " --id " + str(id)
-    return command, args
+    return command
 
 
 def parse_environment_variables(json_obj):
     command = ""
-    args = []
     for key, value in json_obj.items():
-        if key == "wordy":
+        if key == "wordy" or key == "compute_canada":
             if value == True:
                 command += " --" + key 
-                args.append("--" + key )
         elif key != "grid" and key != "iter":
             command += " --" + key + " " + str(value)
-            args.append("--" + key + "=" + str(value))
-    return command, args
+    return command
 
 
 def time_as_str(runtime):
@@ -102,52 +96,81 @@ def time_as_str(runtime):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("in_path", help="input JSON", type=str)
+    parser.add_argument("in_path", help="input JSON (or previous runner script if recompute is set)", type=str)
     parser.add_argument("--out_path", help="path to runner script", default="../runner.sh", type=str)
     parser.add_argument("--cc", default=None, help="estimate runtime and store as CC runner script at given location", type=str)
+    parser.add_argument("--recompute",  action="store_true", help="recompute runtime estimation from previous runner script")
     args = parser.parse_args()
 
-    # parse JSON
-    with open(args.in_path) as json_file:
-        json_obj = json.load(json_file)
-        grid = parse_axis(json_obj["grid"])
-    
-    # make runner
-    n_configs = len(next(iter(grid.values())))
-    line = 1
-    iterations = 1 if "iter" not in json_obj else json_obj["iter"]
-
-    # open files
-    cc_runner = open(args.cc, 'w')
-    command_file = open(args.out_path, 'w')
-
-    # write to files
-    for i in range(n_configs):
-        print(str(i+1) + "/" + str(n_configs), end="\r")  
-        # get config for this experiment (i)
-        config = {}
-        for key, value in grid.items():
-            config[key] = value[i]
-        # precompute runtime if CC
+    # if we are recomputing previous runner runtimes
+    if args.recompute:
+        lines = []
+        with open(args.in_path) as runner:
+            n = len(runner.readlines())
+            runner.seek(0)
+            for line in runner:
+                print(str(len(lines)+1) + "/" + str(n), end="\r")  
+                # get args from command line
+                os.chdir('../')
+                experiment_vars = get_experiment_vars_from_args(line.split()[2:])
+                # recompute
+                _, _, _, runtime = estimate(experiment_vars)
+                os.chdir('configs/')
+                time_str = time_as_str(runtime)
+                # append line
+                lines.append(f"sbatch --time={time_str} --account=def-mlecuyer cc_executor.sh {len(lines)+1} runner.input\n")
         if args.cc is not None:
-            main_args = parse_args(config, i+1)[1] + parse_environment_variables(json_obj)[1]
-            os.chdir('../')
-            experiment_vars = get_experiment_vars_from_args(main_args)
-            alpha, gamma, sigma, runtime = estimate(experiment_vars)
-            os.chdir('configs/')
-            config["alpha"] = alpha
-            config["gamma"] = gamma
-            config["sigma"] = sigma
-            time_str = time_as_str(runtime)
-            # write line to CC script
-            for it in range(iterations):
-                cc_runner.write(f"sbatch --time={time_str} --account=def-mlecuyer cc_executor.sh {line} runner.input\n")
-                line += 1
-        # parse command for runner
-        command = "python main.py" + parse_args(config, i+1)[0] + parse_environment_variables(json_obj)[0]
-        # write command
-        command_file.write(iterations * (command + "\n"))
+            # write lines to CC script
+            with open(args.cc, 'w') as cc_runner:
+                for line in lines:
+                    cc_runner.write(line)
+        else:
+            raise Exception("Should specify CC runner script (--cc <string>) in which to store new recomputed runtimes")
+    # otherwise do the usual parse JSON then constrcut runner
+    else:
+        # parse JSON
+        with open(args.in_path) as json_file:
+            json_obj = json.load(json_file)
+            grid = parse_axis(json_obj["grid"])
+        
+        # make runner
+        n_configs = len(next(iter(grid.values())))
+        line = 1
+        iterations = 1 if "iter" not in json_obj else json_obj["iter"]
 
-    # close files
-    cc_runner.close()
-    command_file.close()
+        # open files
+        if args.cc is not None:
+            cc_runner = open(args.cc, 'w')
+        command_file = open(args.out_path, 'w')
+
+        # write to files
+        for i in range(n_configs):
+            print(str(i+1) + "/" + str(n_configs), end="\r")  
+            # get config for this experiment (i)
+            config = {}
+            for key, value in grid.items():
+                config[key] = value[i]
+            # precompute runtime if CC
+            if args.cc is not None:
+                main_args = (parse_args(config, i+1) + parse_environment_variables(json_obj)).split()
+                os.chdir('../')
+                experiment_vars = get_experiment_vars_from_args(main_args)
+                alpha, gamma, sigma, runtime = estimate(experiment_vars)
+                os.chdir('configs/')
+                config["alpha"] = alpha
+                config["gamma"] = gamma
+                config["sigma"] = sigma
+                time_str = time_as_str(runtime)
+                # write line to CC script
+                for it in range(iterations):
+                    cc_runner.write(f"sbatch --time={time_str} --account=def-mlecuyer cc_executor.sh {line} runner.input\n")
+                    line += 1
+            # parse command for runner
+            command = "python main.py" + parse_args(config, i+1) + parse_environment_variables(json_obj)
+            # write command
+            command_file.write(iterations * (command + "\n"))
+
+        # close files
+        if args.cc is not None:
+            cc_runner.close()
+        command_file.close()
