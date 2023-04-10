@@ -86,5 +86,4 @@ def add_self_edges(dataset):
 
 
 def make_undirected(dataset):
-  edge_index = torch.cat((dataset.edge_index, dataset.edge_index[[1, 0], :]), dim=1)
-  return Data(x=dataset.x, y=dataset.y, edge_index=edge_index)
+  dataset.edge_index = torch.cat((dataset.edge_index, dataset.edge_index[[1, 0], :]), dim=1)
