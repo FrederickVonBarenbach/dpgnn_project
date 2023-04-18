@@ -106,19 +106,31 @@ if __name__ == '__main__':
     if args.recompute:
         lines = []
         with open(args.in_path) as runner:
+            # group sets of 1 day long experiments (86400)
+            total_runtime = 0
+            start_line_number = 1
             n = len(runner.readlines())
             runner.seek(0)
-            for line in runner:
+            for line_number, line in enumerate(runner):
                 print(str(len(lines)+1) + "/" + str(n), end="\r")  
                 # get args from command line
                 os.chdir('../')
                 experiment_vars = get_experiment_vars_from_args(line.split()[2:])
                 # recompute
                 _, _, _, runtime = estimate(experiment_vars)
+                total_runtime += runtime
                 os.chdir('configs/')
-                time_str = time_as_str(runtime)
-                # append line
-                lines.append(f"sbatch --time={time_str} --account=def-mlecuyer cc_executor.sh {len(lines)+1} runner.input\n")
+                # make new cc_command
+                if total_runtime > 86400:
+                    time_str = time_as_str(total_runtime)
+                    if start_line_number == line_number+1:
+                        cc_command = f"sbatch --array={start_line_number} --time={time_str} --account=def-mlecuyer cc_executor.sh runner.input\n"
+                    else:
+                        cc_command = f"sbatch --array={start_line_number}-{line_number+1} --time={time_str} --account=def-mlecuyer cc_executor.sh runner.input\n"
+                    start_line_number = line_number+2
+                    total_runtime = 0
+                    # append line
+                    lines.append(cc_command)
         if args.cc is not None:
             # write lines to CC script
             with open(args.cc, 'w') as cc_runner:

@@ -1,5 +1,6 @@
 import argparse
 import seaborn as sns
+import pickle
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -68,6 +69,7 @@ def plot_heatmap(df):
 
 
 def plot_graph_line(df):
+    # df_save = None
     df = df.loc[df["epsilon"] <= epsilon_bound]
     n_rows = len(list(variables["rows"].values())[0]) if "rows" in variables else 1
     n_columns = len(list(variables["columns"].values())[0]) if "columns" in variables else 1
@@ -87,12 +89,17 @@ def plot_graph_line(df):
             plt.subplot(n_rows, n_columns, row*n_columns + column + 1)
             df_setting = df
             # filter for given row and column
+            setting_string = ""
             if "rows" in variables:
                 for (key, value) in variables["rows"].items():
                     df_setting = df_setting.loc[df_setting[key] == value[row]]
+                    setting_string += f"{key}={value[row]},"
             if "columns" in variables:
                 for (key, value) in variables["columns"].items():
                     df_setting = df_setting.loc[df_setting[key] == value[column]]
+                    setting_string += f"{key}={value[column]},"
+            if len(setting_string) > 0:
+                setting_string = setting_string[:-1]
             # filter comparisons
             for comparison in range(n_comparisons):
                 df_comparison = df_setting
@@ -103,22 +110,34 @@ def plot_graph_line(df):
 
                 # filter best value
                 df_best = df_comparison.groupby(["step", *(variables["best"])], as_index=False).mean(numeric_only=True)
+                # get final value (when epsilon is maximized)
                 df_best = df_best.loc[df_best.groupby([*(variables["best"])])["epsilon"].idxmax()]
-                best_values = (df_best.loc[df_best[values[0]].idxmax()])[[*(variables["best"])]]
+                best_values = (df_best.loc[df_best[values[0]].idxmin()])[[*(variables["best"])]]
+                best_setting_string = f"best values in {setting_string} for {label_prefix}: " + "{"
                 for variable in variables["best"]:
                     df_comparison = df_comparison.loc[df_comparison[variable] == best_values[variable]]
+                    best_setting_string += f" {variable}={best_values[variable]}"
+                print(best_setting_string, "}")
 
                 # get average according to the axes
+                # if df_save is None:
+                #     df_save = df_comparison[["optimizer", "epsilon", *(variables["best"]), "step", "train_loss", "test_loss", "train_acc", "test_acc"]]
+                # else:
+                #     df_save = pd.concat([df_save, df_comparison[["optimizer", "epsilon", *(variables["best"]), "step", "train_loss", "test_loss", "train_acc", "test_acc"]]], ignore_index=True)
                 if axes[0] != "step":
-                    df_comparison = df_comparison.groupby([axes[0], "step"], as_index=False).mean(numeric_only=True)
+                    group = df_comparison.groupby([axes[0], "step"], as_index=False)
                 else:
-                    df_comparison = df_comparison.groupby(["step"], as_index=False).mean(numeric_only=True)
+                    group = df_comparison.groupby(["step"], as_index=False)
+                df_comparison = group.mean(numeric_only=True)
+                df_std = group.std(numeric_only=True)
                 x = df_comparison[axes[0]]
 
                 # make plot
                 for value in range(len(values)):
                     y = df_comparison[values[value]]
+                    error = df_std[values[value]]
                     plt.plot(x, y, label=label_prefix + values[value], color=comparison_colors[comparison], linestyle=value_styles[value])
+                    plt.fill_between(x, y-error, y+error, alpha=0.5, facecolor=comparison_colors[comparison])
                     plt.xlabel(axes[0])
                 plt.legend()
                 plt.ylim((value_range[0], value_range[1]))
@@ -144,6 +163,9 @@ def plot_graph_line(df):
                 title = title[:-2]
                 plt.text(-0.25, 0.5, title, fontsize=12, rotation=90,
                          horizontalalignment='center', verticalalignment='center', transform=axs[row, column].transAxes)
+    if save_plot_results:
+        # df_save.to_csv("data.csv", index=False)
+        pickle.dump(axs, open("plot.pickle", "wb"))
     fig.tight_layout()
     plt.savefig(storepath)
 
@@ -157,7 +179,7 @@ if __name__ == '__main__':
         runs = api.runs(filepath)
 
         df = pd.DataFrame()
-        i = 0
+        i = 1
         n = len(runs)
         for run in runs: 
             print(str(i) + "/" + str(n), end="\r")
@@ -204,3 +226,7 @@ if __name__ == '__main__':
 
     elif graph_type == "line":
         plot_graph_line(df)
+
+    elif graph_type == "load":
+        ax = pickle.load(open("plot.pickle", "rb"))
+        plt.savefig(storepath)

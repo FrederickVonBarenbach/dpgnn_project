@@ -89,12 +89,12 @@ def run_non_private_experiment(config, experiment_vars):
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
         print("Training step:", t)
-      _, train_acc = n_batch_test(train_loader, config.train_batches, "TRAIN", model, loss_fn, config.device, wordy=config.wordy)
-      _, test_acc = n_batch_test(test_loader, config.train_batches, "TEST", model, loss_fn, config.device, wordy=config.wordy)
+      train_loss, train_acc = n_batch_test(train_loader, config.train_batches, "TRAIN", model, loss_fn, config.device, wordy=config.wordy)
+      test_loss, test_acc = n_batch_test(test_loader, config.train_batches, "TEST", model, loss_fn, config.device, wordy=config.wordy)
       row["epsilon"] = 0
       row["step"] = t
-      row["train_acc"] = train_acc
-      row["test_acc"] = test_acc
+      row["train_acc"], row["test_acc"] = train_acc, test_acc
+      row["train_loss"], row["test_loss"] = train_loss, test_loss
       # write data to csv
       if config.wandb_project is None:
         with open(config.results_path, 'a') as f_object:
@@ -102,7 +102,9 @@ def run_non_private_experiment(config, experiment_vars):
           writer_object.writerow(row.values())
           f_object.close()
       else:
-        wandb.log({"train_acc": row["train_acc"], "test_acc": row["test_acc"], "step": row["step"], "epsilon": row["epsilon"]})
+        wandb.log({"train_loss": row["train_loss"], "test_loss": row["test_loss"],
+                   "train_acc": row["train_acc"], "test_acc": row["test_acc"], 
+                   "step": row["step"], "epsilon": row["epsilon"]})
 
     if t >= max_iters:
       break
@@ -179,14 +181,14 @@ def run_original_experiment(config, experiment_vars):
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
         print("Training step:", t)
-      _, train_acc = n_batch_test(non_priv_train_loader, config.train_batches, "TRAIN", model, loss_fn, config.device, wordy=config.wordy)
-      _, test_acc = n_batch_test(test_loader, config.train_batches, "TEST", model, loss_fn, config.device, wordy=config.wordy)
+      train_loss, train_acc = n_batch_test(non_priv_train_loader, config.train_batches, "TRAIN", model, loss_fn, config.device, wordy=config.wordy)
+      test_loss, test_acc = n_batch_test(test_loader, config.train_batches, "TEST", model, loss_fn, config.device, wordy=config.wordy)
       if config.wordy:
         print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, experiment_vars["delta"]))
       row["epsilon"] = curr_epsilon
       row["step"] = t
-      row["train_acc"] = train_acc
-      row["test_acc"] = test_acc
+      row["train_acc"], row["test_acc"] = train_acc, test_acc
+      row["train_loss"], row["test_loss"] = train_loss, test_loss
       # write data to csv
       if config.wandb_project is None:
         with open(config.results_path, 'a') as f_object:
@@ -194,7 +196,9 @@ def run_original_experiment(config, experiment_vars):
           writer_object.writerow(row.values())
           f_object.close()
       else:
-        wandb.log({"train_acc": row["train_acc"], "test_acc": row["test_acc"], "step": row["step"], "epsilon": row["epsilon"]})
+        wandb.log({"train_loss": row["train_loss"], "test_loss": row["test_loss"],
+                   "train_acc": row["train_acc"], "test_acc": row["test_acc"], 
+                   "step": row["step"], "epsilon": row["epsilon"]})
 
     if curr_epsilon >= experiment_vars["epsilon"]:
       break
@@ -269,14 +273,14 @@ def run_our_experiment(config, experiment_vars):
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
         print("Training step:", t)
-      _, train_acc = n_batch_test(non_priv_train_loader, config.train_batches, "TRAIN", model, loss_fn, config.device, wordy=config.wordy)
-      _, test_acc = n_batch_test(test_loader, config.train_batches, "TEST", model, loss_fn, config.device, wordy=config.wordy)
+      train_loss, train_acc = n_batch_test(non_priv_train_loader, config.train_batches, "TRAIN", model, loss_fn, config.device, wordy=config.wordy)
+      test_loss, test_acc = n_batch_test(test_loader, config.train_batches, "TEST", model, loss_fn, config.device, wordy=config.wordy)
       if config.wordy:
         print(" Optimizer Achieves ({:>0.1f}, {})-DP".format(curr_epsilon, experiment_vars["delta"]))
       row["epsilon"] = curr_epsilon
       row["step"] = t
-      row["train_acc"] = train_acc
-      row["test_acc"] = test_acc
+      row["train_acc"], row["test_acc"] = train_acc, test_acc
+      row["train_loss"], row["test_loss"] = train_loss, test_loss
       # write data to csv
       if config.wandb_project is None:
         with open(config.results_path, 'a') as f_object:
@@ -284,7 +288,9 @@ def run_our_experiment(config, experiment_vars):
           writer_object.writerow(row.values())
           f_object.close()
       else:
-        wandb.log({"train_acc": row["train_acc"], "test_acc": row["test_acc"], "step": row["step"], "epsilon": row["epsilon"]})
+        wandb.log({"train_loss": row["train_loss"], "test_loss": row["test_loss"],
+                   "train_acc": row["train_acc"], "test_acc": row["test_acc"], 
+                   "step": row["step"], "epsilon": row["epsilon"]})
 
     if curr_epsilon >= experiment_vars["epsilon"]:
       break
@@ -401,7 +407,7 @@ parser = argparse.ArgumentParser()
 # loggable variables
 header = ["batch_size", "epsilon", "delta", "r_hop", "degree_bound", "clipping_threshold", "clipping_multiplier", "clipping_percentile", "noise_multiplier", "lr", \
           "weight_decay", "beta1", "beta2", "eps", "encoder_dimensions", "decoder_dimensions", "activation", "dropout", "optimizer", "dataset", "setup", "sigma", "alpha", "gamma", "step", "train_acc", \
-          "test_acc", "id"]
+          "test_acc", "train_loss", "test_loss", "id"]
 parser.add_argument("--batch_size", help="size of batch", default=10000, type=int)
 parser.add_argument("--epsilon", help="privacy budget (for DP)", default=10, type=float)
 parser.add_argument("--delta", help="leakage probability (for DP)", default=5e-8, type=float)
