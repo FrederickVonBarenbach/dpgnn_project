@@ -1,9 +1,11 @@
 import torch
 import gc
+import os
 from torch_geometric.data import Data
+from torch_geometric.loader import NeighborLoader
 
-# train
-def train(batch, model, loss_fn, optimizer, device, private=True):
+# train non privately
+def train_non_priv(batch, model, loss_fn, optimizer, device):
   model.train()
   batch = batch.to(device)
   # compute prediction error
@@ -17,11 +19,36 @@ def train(batch, model, loss_fn, optimizer, device, private=True):
   clean_grad = get_clean_grad(model)
   # step optimizer
   optimizer.step()
-  if private:
-    # get clipped and private grads
-    clipped_grad, private_grad = get_clipped_and_private_grad(model)
+  return clean_grad
+
+# train
+def train(train_loader, batch_size, model, loss_fn, optimizer, config, experiment_vars):
+  model.train()
+  loader_iterator = iter(train_loader)
+  # backpropagation
+  optimizer.zero_grad()
+  for i in range(batch_size):
+    batch = next(loader_iterator).to(config.device)
+    optimizer.zero_microbatch_grad()
+    # compute prediction error
+    pred = model(batch)[:batch.batch_size]
+    y = batch.y[:batch.batch_size]
+    loss = loss_fn(pred, y)
+    loss.backward()
+    optimizer.microbatch_step()
+  # get clean grad
+  clean_grad = get_clean_grad(model)
+  # step optimizer (give histograms if using ADAM based optimizer)
+  if experiment_vars["optimizer"] == "DPAdamFixed" or experiment_vars["optimizer"] == "DPAdam":
+    _, logging_stats, hist_dict, dummy_step = optimizer.step()
+    if hist_dict:
+      if not os.path.exists('./data/hist/' + config.experiment_name):
+        os.makedirs('./data/hist/' + config.experiment_name)
+      pickle.dump(hist_dict, open(('./data/hist/' + config.experiment_name + 'hist_step_{}.pkl'.format(dummy_step)), 'wb'))
   else:
-    clipped_grad, private_grad = 0, 0
+    optimizer.step()
+  # get clipped and private grads
+  clipped_grad, private_grad = get_clipped_and_private_grad(model)
   return clean_grad, clipped_grad, private_grad
 
 

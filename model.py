@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GCNConv
-from torch_geometric.nn import MLP
+from torch_geometric.nn import GCNConv, MLP
 import torch.nn.functional as F
 
 class GNN(torch.nn.Module):
@@ -11,8 +10,8 @@ class GNN(torch.nn.Module):
       self.gcn = nn.ModuleList()
       for i in range(r_hops):
         self.gcn.append(GCNConv(embedding_dimensions, embedding_dimensions, normalize=False))
-      self.encoder = MLP(encoder_dimensions)
-      self.decoder = MLP(decoder_dimensions)
+      self.encoder = MLP(encoder_dimensions, norm=None)
+      self.decoder = MLP(decoder_dimensions, norm=None)
       self.activation = F.relu if activation == "relu" else nn.Tanh()
       self.dropout = dropout
 
@@ -24,4 +23,4 @@ class GNN(torch.nn.Module):
         x = self.activation(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
       x = self.decoder(x)
-      return F.log_softmax(x, dim=1) # TODO: is this softmax necessary?
+      return F.log_softmax(x, dim=1)

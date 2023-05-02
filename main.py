@@ -8,8 +8,8 @@ from model import *
 from train_test import *
 from analysis import *
 from dataset_loader import *
-from opacus import PrivacyEngine
-
+from optim import DPAdam, DPSGD, DPAdamFixed
+# TODO: replace opacus with pyvacy and wrap adam corr in pyvacy optimizer thing
 
 def run_experiment(experiment_vars, config):
   print(f"Available GPU memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:>0.2f} GB")
@@ -84,7 +84,7 @@ def run_non_private_experiment(config, experiment_vars):
     # train if haven't expended all of budget
     if t < max_iters:
       batch = next(iter(train_loader))
-      row["clean_grad"], _, _ = train(batch, model, loss_fn, optimizer, config.device)
+      row["clean_grad"] = train_non_priv(batch, model, loss_fn, optimizer, config.device)
     if t % config.test_stepsize == 0 or t >= max_iters:
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
@@ -139,7 +139,7 @@ def run_original_experiment(config, experiment_vars):
   sampled_dataset = sample_edgelists(dataset, experiment_vars["degree_bound"], config.device)
   train_loader = NeighborLoader(sampled_dataset, 
                                 num_neighbors=[-1] * experiment_vars["r_hop"],
-                                batch_size=experiment_vars["batch_size"],
+                                batch_size=1,
                                 input_nodes=sampled_dataset.train_mask,
                                 shuffle=True)
 
@@ -170,16 +170,6 @@ def run_original_experiment(config, experiment_vars):
               experiment_vars["activation"], experiment_vars["r_hop"], experiment_vars["dropout"]).to(config.device)
   loss_fn = nn.CrossEntropyLoss()
   optimizer = get_optimizer(experiment_vars, clipping_threshold, sigma, model)
-  # setup privacy engine
-  privacy_engine = PrivacyEngine()
-  model, optimizer, train_loader = privacy_engine.make_private(
-      module=model,
-      optimizer=optimizer,
-      data_loader=train_loader,
-      max_grad_norm=clipping_threshold,
-      noise_multiplier=sigma,
-      poisson_sampling=False
-  )
 
   # train/test
   t = 1
@@ -187,8 +177,8 @@ def run_original_experiment(config, experiment_vars):
     curr_epsilon = get_epsilon(gamma, t, alpha, experiment_vars["delta"])
     # train if haven't expended all of budget
     if curr_epsilon < experiment_vars["epsilon"]:
-      batch = next(iter(train_loader))
-      row["clean_grad"], row["clipped_grad"], row["private_grad"] = train(batch, model, loss_fn, optimizer, config.device)
+      row["clean_grad"], row["clipped_grad"], row["private_grad"] = train(train_loader, experiment_vars["batch_size"], model, loss_fn, \
+                                                                          optimizer, config, experiment_vars)
     if t % config.test_stepsize == 0 or curr_epsilon >= experiment_vars["epsilon"]:
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
@@ -275,24 +265,14 @@ def run_our_experiment(config, experiment_vars):
     sampled_dataset = sample_edgelists(dataset, experiment_vars["degree_bound"], config.device)
     train_loader = NeighborLoader(sampled_dataset, 
                                   num_neighbors=[-1] * experiment_vars["r_hop"],
-                                  batch_size=experiment_vars["batch_size"],
+                                  batch_size=1,
                                   input_nodes=sampled_dataset.train_mask,
                                   shuffle=True)
     curr_epsilon = get_epsilon(gamma, t, alpha, experiment_vars["delta"])
     # train if haven't expended all of budget
     if curr_epsilon < experiment_vars["epsilon"]:
-      # setup privacy engine
-      privacy_engine = PrivacyEngine()
-      model, optimizer, train_loader = privacy_engine.make_private(
-          module=model,
-          optimizer=optimizer,
-          data_loader=train_loader,
-          max_grad_norm=clipping_threshold,
-          noise_multiplier=sigma,
-          poisson_sampling=False
-      )
-      batch = next(iter(train_loader))
-      row["clean_grad"], row["clipped_grad"], row["private_grad"] = train(batch, model, loss_fn, optimizer, config.device)
+      row["clean_grad"], row["clipped_grad"], row["private_grad"] = train(train_loader, experiment_vars["batch_size"], model, loss_fn, \
+                                                                          optimizer, config, experiment_vars)    
     if t % config.test_stepsize == 0 or curr_epsilon >= experiment_vars["epsilon"]:
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
@@ -411,15 +391,18 @@ def get_sigma(experiment_vars, clipping_threshold):
 def get_optimizer(experiment_vars, clipping_threshold, sigma, model):
   optimizer = None
   if experiment_vars["optimizer"] == "DPSGD":
-    optimizer = torch.optim.SGD(params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
+    optimizer = DPSGD(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, minibatch_size=experiment_vars["batch_size"], microbatch_size=1,
+                      params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
   elif experiment_vars["optimizer"] == "DPAdam":
-    optimizer = torch.optim.Adam(params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"],
-                                 betas=(experiment_vars["beta1"],experiment_vars["beta2"]), eps=experiment_vars["eps"])
+    optimizer = DPAdam(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, minibatch_size=experiment_vars["batch_size"], microbatch_size=1,
+                       params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"],
+                       betas=(experiment_vars["beta1"],experiment_vars["beta2"]), eps=experiment_vars["eps"])
   elif experiment_vars["optimizer"] == "DPAdamFixed":
     from dp_nlp.adam_corr import AdamCorr
-    optimizer = AdamCorr(dp_l2_norm_clip=clipping_threshold, dp_noise_multiplier=sigma, dp_batch_size=experiment_vars["batch_size"],
-                         params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"],
-                         betas=(experiment_vars["beta1"],experiment_vars["beta2"]), eps_root=experiment_vars["eps"], eps=0)
+    optimizer = DPAdamFixed(l2_norm_clip=clipping_threshold, noise_multiplier=sigma, minibatch_size=experiment_vars["batch_size"], microbatch_size=1,
+                            dp_l2_norm_clip=clipping_threshold, dp_noise_multiplier=sigma, dp_batch_size=experiment_vars["batch_size"],
+                            params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"],
+                            betas=(experiment_vars["beta1"],experiment_vars["beta2"]), eps_root=experiment_vars["eps"], eps=0)
   elif experiment_vars["optimizer"] == "Adam":
     optimizer = torch.optim.Adam(params=model.parameters(), lr=experiment_vars["lr"], weight_decay=experiment_vars["weight_decay"])
   return optimizer
