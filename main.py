@@ -66,7 +66,7 @@ def run_non_private_experiment(config, experiment_vars):
   # setup wandb
   if config.wandb_project is not None:
     import wandb
-    wandb.init(project=config.wandb_project, config=row, name="Experiment " + str(row["id"]))
+    wandb.init(project=config.wandb_project, config=row, name=config.experiment_name)
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], 
@@ -84,7 +84,7 @@ def run_non_private_experiment(config, experiment_vars):
     # train if haven't expended all of budget
     if t < max_iters:
       batch = next(iter(train_loader))
-      row["clean_grad"], _, _ train(batch, model, loss_fn, optimizer, config.device)
+      row["clean_grad"], _, _ = train(batch, model, loss_fn, optimizer, config.device)
     if t % config.test_stepsize == 0 or t >= max_iters:
       if config.wordy:
         print(f"Memory reserved: {torch.cuda.memory_reserved(0)/1024**3:>0.2f} GB, memory allocated: {torch.cuda.memory_allocated(0)/1024**3:>0.2f} GB")
@@ -163,7 +163,7 @@ def run_original_experiment(config, experiment_vars):
   # setup wandb
   if config.wandb_project is not None:
     import wandb
-    wandb.init(project=config.wandb_project, config=row, name="Experiment " + str(row["id"]))
+    wandb.init(project=config.wandb_project, config=row, name=config.experiment_name)
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], 
@@ -261,7 +261,7 @@ def run_our_experiment(config, experiment_vars):
   # setup wandb
   if config.wandb_project is not None:
     import wandb
-    wandb.init(project=config.wandb_project, config=row, name="Experiment " + str(row["id"]))
+    wandb.init(project=config.wandb_project, config=row, name=config.experiment_name)
 
   # setup model
   model = GNN(experiment_vars["encoder_dimensions"], experiment_vars["decoder_dimensions"], 
@@ -461,6 +461,7 @@ parser.add_argument("--device", help="which device to use", default="cuda", choi
 parser.add_argument("--results_path", help="path to results file", default="./data/results.csv", type=str)
 parser.add_argument("--wordy", help="log everything", action="store_true")
 parser.add_argument("--wandb_project", help="save results to wandb in the specified project", type=str)
+parser.add_argument("--experiment_name", help="name of experiment in wandb", type=str)
 parser.add_argument("--max_degree", help="the maximum number of neighbours to include when testing model", default=50, type=int)
 parser.add_argument("--test_batch_size", help="the batch size used by the (non-dp) test set", default=1000, type=int)
 parser.add_argument("--test_stepsize", help="the number of steps between tests/logs", default=100, type=int)

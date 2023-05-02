@@ -52,6 +52,13 @@ def join_axes(*axes):
     return joined
 
 
+def parse_args(config, id):
+    command = ""
+    for key, value in config.items():
+        if value != "N/a":
+            command += " --" + key + " " + parse_command(key, value)
+    command += " --id " + str(id)
+    return command
 
 enums = {
     "setup": ["original", "ours", "non-dp"],
@@ -59,18 +66,13 @@ enums = {
     "dataset": ["ogb_mag", "reddit"],
     "activation": ["relu", "tanh"]
 }
-def parse_args(config, id):
-    command = ""
-    for key, value in config.items():
-        if value != "N/a":
-            command += " --" + key + " "
-            if key in enums.keys() and isinstance(value, int):
-                command += enums[key][value]
-            elif key in ["encoder_dimensions", "decoder_dimensions"]:
-                command += " ".join(str(item) for item in value)
-            else:
-                command += str(value)
-    command += " --id " + str(id)
+def parse_command(key, value):
+    if key in enums.keys() and isinstance(value, int):
+        command = enums[key][value]
+    elif key in ["encoder_dimensions", "decoder_dimensions"]:
+        command = " ".join(str(item) for item in value)
+    else:
+        command = str(value)
     return command
 
 
@@ -86,7 +88,7 @@ def parse_environment_variables(json_obj, config, id):
     if "experiment_name" in json_obj:
         command += " --experiment_name "
         for key in json_obj["experiment_name"]:
-            command += key + "=" + str(config[key]) + "_"
+            command += key + "=" + parse_command(key, config[key]) + "_"
         command = command[:-1]
     else:
         command += " --experiment_name experiment " + str(id)
