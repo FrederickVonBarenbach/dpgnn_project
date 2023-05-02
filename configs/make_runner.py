@@ -74,7 +74,7 @@ def parse_args(config, id):
     return command
 
 
-def parse_environment_variables(json_obj):
+def parse_environment_variables(json_obj, config, id):
     command = ""
     for key, value in json_obj.items():
         if key == "wordy" or key == "compute_canada":
@@ -82,6 +82,14 @@ def parse_environment_variables(json_obj):
                 command += " --" + key 
         elif key != "grid" and key != "iter":
             command += " --" + key + " " + str(value)
+    # make experiment name
+    if "experiment_name" in json_obj:
+        command += " --experiment_name "
+        for key in json_obj["experiment_name"]:
+            command += key + "=" + str(config[key]) + "_"
+        command = command[:-1]
+    else:
+        command += " --experiment_name experiment " + str(id)
     return command
 
 
@@ -178,7 +186,7 @@ if __name__ == '__main__':
                     cc_runner.write(f"sbatch --time={time_str} --account=def-mlecuyer cc_executor.sh {line} runner.input\n")
                     line += 1
             # parse command for runner
-            command = "python main.py" + parse_args(config, i+1) + parse_environment_variables(json_obj)
+            command = "python main.py" + parse_args(config, i+1) + parse_environment_variables(json_obj, config, i+1)
             # write command
             command_file.write(iterations * (command + "\n"))
 
