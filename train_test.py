@@ -3,7 +3,7 @@ import gc
 from torch_geometric.data import Data
 
 # train
-def train(batch, model, loss_fn, optimizer, device):
+def train(batch, model, loss_fn, optimizer, device, private=True):
   model.train()
   batch = batch.to(device)
   # compute prediction error
@@ -13,7 +13,16 @@ def train(batch, model, loss_fn, optimizer, device):
   # backpropagation
   optimizer.zero_grad()
   loss.backward()
+  # get clean grad
+  clean_grad = get_clean_grad(model)
+  # step optimizer
   optimizer.step()
+  if private:
+    # get clipped and private grads
+    clipped_grad, private_grad = get_clipped_and_private_grad(model)
+  else:
+    clipped_grad, private_grad = 0, 0
+  return clean_grad, clipped_grad, private_grad
 
 
 # test
@@ -66,3 +75,23 @@ def n_batch_test(loader, n, split, model, loss_fn, device, wordy=True):
   if wordy:
     print(f"{split.title()} Error: \n Avg Accuracy: {(100*correct):>0.1f}%, Avg Loss: {test_loss:>8f}")
   return test_loss, correct
+
+
+def get_clipped_and_private_grad(model):
+  param_grad_norms = []
+  param_clipped_grad_norms = []
+  for param in model.parameters():
+      if param.grad is not None:
+          param_grad_norms.append(torch.linalg.norm(param.grad))
+          param_clipped_grad_norms.append(torch.linalg.norm(param.summed_grad))
+  private_grad_norm = torch.linalg.norm(torch.stack(param_grad_norms))
+  clipped_grad_norm = torch.linalg.norm(torch.stack(param_clipped_grad_norms))
+  return private_grad_norm, clipped_grad_norm
+
+
+def get_clean_grad(model):
+  param_grad_norms = []
+  for param in model.parameters():
+      if param.grad is not None:
+          param_grad_norms.append(torch.linalg.norm(param.grad))
+  return torch.linalg.norm(torch.stack(param_grad_norms))
