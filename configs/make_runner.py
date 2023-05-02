@@ -82,15 +82,14 @@ def parse_environment_variables(json_obj, config, id):
         if key == "wordy" or key == "compute_canada":
             if value == True:
                 command += " --" + key 
+        elif key == "experiment_name":
+            command += " --experiment_name "
+            for key in json_obj["experiment_name"]:
+                command += key + "=" + parse_command(key, config[key]) + "_"
+            command = command[:-1]
         elif key != "grid" and key != "iter":
             command += " --" + key + " " + str(value)
-    # make experiment name
-    if "experiment_name" in json_obj:
-        command += " --experiment_name "
-        for key in json_obj["experiment_name"]:
-            command += key + "=" + parse_command(key, config[key]) + "_"
-        command = command[:-1]
-    else:
+    if "experiment_name" not in json_obj:
         command += " --experiment_name experiment " + str(id)
     return command
 
